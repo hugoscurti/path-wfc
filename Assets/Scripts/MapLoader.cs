@@ -21,7 +21,6 @@ public class MapLoader : MonoBehaviour {
     public Tilemap inputTarget;
     public Tilemap outputTarget;
 
-    private Texture2D input;
     private Texture2D output;
 
     public Tile blankTile;
@@ -30,7 +29,7 @@ public class MapLoader : MonoBehaviour {
     public void LoadMap(FileInfo file, bool input)
     {
         Tilemap target = input ? inputTarget : outputTarget;
-        Texture2D source = input ? this.input : this.output;
+        Texture2D source;
 
         target.ClearAllTiles();
 
@@ -51,6 +50,9 @@ public class MapLoader : MonoBehaviour {
         {
             throw new NotSupportedException("File type not supported");
         }
+
+        if (!input)
+            this.output = source;
 
         PaintTexture(source, target);
     }

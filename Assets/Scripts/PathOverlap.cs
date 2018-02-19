@@ -32,6 +32,12 @@ public class PathOverlap : MonoBehaviour {
     [Range(2, 6)]
     public int N = 3;
 
+    public void Cancel()
+    {
+        _threadRunning = false;
+    }
+
+
 	public void ExecuteAlgorithm()
     {
         // Prepare variables for thread
@@ -65,7 +71,6 @@ public class PathOverlap : MonoBehaviour {
         do
         {
             model.Print(blankTile);
-            Debug.Log($"Test update {i++}");
 
             yield return new WaitForSeconds(1);
 
@@ -73,7 +78,6 @@ public class PathOverlap : MonoBehaviour {
 
         // Final print after algorithm is done
         model.Print(blankTile);
-        Debug.Log($"Test update {i++}");
 
         yield return null;
     }
@@ -94,7 +98,6 @@ public class PathOverlap : MonoBehaviour {
         }
 
         _threadRunning = false;
-        var i = 0;
 
         if (!workDone.HasValue)
             Debug.Log("Cancelled");

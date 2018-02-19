@@ -14,10 +14,15 @@ public class PathOverlapEditor : Editor
 
         // Add button to execute algorithm
 
-        if (GUILayout.Button("Execute"))
+        if (GUILayout.Button("Play"))
         {
             // Execute the thing
             (target as PathOverlap).ExecuteAlgorithm();
+        }
+
+        if (GUILayout.Button("Stop"))
+        {
+            (target as PathOverlap).Cancel();
         }
 
     }
