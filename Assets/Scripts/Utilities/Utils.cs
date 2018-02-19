@@ -1,6 +1,8 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Linq;
+using UnityEngine;
+using UnityEngine.Tilemaps;
 
 namespace Utilities
 {
@@ -39,6 +41,31 @@ namespace Utilities
             if (isi.InvokeRequired) isi.BeginInvoke(call, new object[] { isi });
             else
                 call(isi);
+        }
+    }
+
+    public static class TilemapUtils
+    {
+        public static RectInt GetBounds(this Tilemap tilemap)
+        {
+            return new RectInt(0, 0, tilemap.cellBounds.size.x, tilemap.cellBounds.size.y);
+        }
+    }
+
+    public static class ArrayUtils
+    {
+        public static void ForEach<T>(this T[,] array, Action<T, int, int> action)
+        {
+            for (int x = 0; x < array.GetLength(0); ++x)
+                for (int y = 0; y < array.GetLength(1); ++y)
+                    action(array[x, y], x, y);
+        }
+
+        public static void ForEach<T>(this T[,] array, Action<int, int> action)
+        {
+            for (int x = 0; x < array.GetLength(0); ++x)
+                for (int y = 0; y < array.GetLength(1); ++y)
+                    action(x, y);
         }
     }
 }

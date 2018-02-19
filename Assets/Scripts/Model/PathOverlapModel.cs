@@ -11,6 +11,7 @@ class PathOverlapModel
 {
     int N;  //Edge size of pattern
     int T;  //Total number of unique patterns
+    int C;  //Color counts
     int overlap_N; //Maximum overlap size
 
     // TODO: Use something more abstract than tilemap, if we'd want to port this to other types of maps
@@ -19,27 +20,27 @@ class PathOverlapModel
     RectInt outsize;
     RectInt insize;
 
+    List<Color> colors;
+
     // We define only three colors
     public static Color freespace = Color.white,
         obstacle = new Color(165f / 255, 42f / 255, 42f / 255),
         path = Color.black;
-
+    
     // Index associated with colors
-    static byte freespace_idx = 0,
-        obstacle_idx = 1,
-        path_idx = 2;
+    int obstacle_idx = -1,
+        freespace_idx = -1;
 
     Pattern[] patterns;
 
-    bool[][] wave;
+    bool[,][] wave;
     double[] stationary;
     byte[,] output_idx;
-    bool observed;
 
-    int[,][][] propagator;  //TODO: Might have to change this?
+    int[,][][] propagator;
 
-    bool[] changes;
-    Stack<int> indexstack;
+    bool[,] changes;
+    Stack<Vector2Int> indexstack;
 
     System.Random random;
 
@@ -49,26 +50,30 @@ class PathOverlapModel
     bool periodicIn = true,
         periodicOut = true;
 
-
     #region Utility Functions
 
     /// <summary>
-    /// TODO: Maybe change this into a dict or something
+    /// Return the index of Color c from the colors array
     /// </summary>
-    private static byte GetColorIndex(Color c)
+    private byte GetColorIndex(Color c)
     {
-        if (c == freespace) return freespace_idx;
-        else if (c == obstacle) return obstacle_idx;
-        else if (c == path) return path_idx;
-        else throw new NotSupportedException("Color must be one of the three colors specified");
+        var idx = colors.IndexOf(c);
+
+        if (idx == -1)
+            throw new NotSupportedException("Color not found");
+
+        return (byte)idx;
     }
 
-    private static Color GetColorFromIndex(byte index)
+
+    /// <summary>
+    /// Find indices for the color corresponding to obstacle and freespace
+    /// </summary>
+    private void FillSpecialColorIndices()
     {
-        if (index == freespace_idx) return freespace;
-        else if (index == obstacle_idx) return obstacle;
-        else if (index == path_idx) return path;
-        else throw new NotSupportedException("Index must match one of the color indices specified");
+        C = colors.Count;
+        obstacle_idx = colors.IndexOf(obstacle);
+        freespace_idx = colors.IndexOf(freespace);
     }
 
     /// <summary>
@@ -78,11 +83,24 @@ class PathOverlapModel
     /// </summary>
     private byte[,] IndexColours(Tilemap source, RectInt size)
     {
+        Color c;
+        int idx;
+
         byte[,] indices = new byte[size.width, size.height];
 
-        for (int y = 0; y < indices.GetLength(1); ++y)
-            for(int x = 0; x < indices.GetLength(0); ++x)
-                indices[x, y] = GetColorIndex(source.GetColor(new Vector3Int(x, y, 0)));
+        for (int y = 0; y < size.height; ++y)
+            for (int x = 0; x < size.width; ++x)
+            {
+                c = source.GetColor(new Vector3Int(x, y, 0));
+                idx = colors.IndexOf(c);
+                if (idx == -1)
+                {
+                    idx = colors.Count;
+                    colors.Add(c);
+                }
+
+                indices[x, y] = (byte)idx;
+            }
 
         return indices;
     }
@@ -90,12 +108,12 @@ class PathOverlapModel
     /// <summary>
     /// Put an index on the stack
     /// </summary>
-    private void Change(int i)
+    private void Change(Vector2Int p)
     {
-        if (changes[i]) return;
+        if (changes[p.x, p.y]) return;
 
-        indexstack.Push(i);
-        changes[i] = true;
+        indexstack.Push(p);
+        changes[p.x, p.y] = true;
     }
 
 
@@ -107,20 +125,8 @@ class PathOverlapModel
             logProb[t] = Math.Log(stationary[t]);
     }
 
-
-    private bool OnBoundary(int i)
-    {
-        return OnBoundary(i, i % outsize.width, i / outsize.width);
-    }
-
     private bool OnBoundary(int x, int y)
     {
-        return OnBoundary(x + y * outsize.width, x, y);
-    }
-
-    private bool OnBoundary(int i, int x, int y)
-    {
-        // TODO: Add a boundary as a pattern that contains an obstacle and no pattern can fit into it?
         return !periodicOut &&
             (x + N > outsize.width || y + N > outsize.height);
     }
@@ -133,6 +139,53 @@ class PathOverlapModel
         return i2;
     }
 
+
+    private void AddPattern(Pattern pattern, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
+    {
+        long index = pattern.GetIndex(C);
+
+        //TODO: Extend with reflexions, rotations?
+        if (counts.ContainsKey(index))
+        {
+            counts[index]++;
+        }
+        else
+        {
+            counts.Add(index, 1);
+            dict.Add(index, pattern);
+        }
+    }
+
+    private void ExtractPatternFromInput(byte[,] indices)
+    {
+        // Generate all patterns
+        // Store them using a unique identifier
+        Dictionary<long, int> patternCounts = new Dictionary<long, int>();
+        Dictionary<long, Pattern> patternDict = new Dictionary<long, Pattern>();
+
+        // Manually insert the freespace pattern
+        AddPattern(new Pattern(N, (byte)freespace_idx), patternCounts, patternDict);
+
+        for (int y = 0; y < (periodicIn ? insize.height: insize.height - N + 1); ++y)
+            for (int x = 0; x < (periodicIn ? insize.width : insize.width - N + 1); ++x)
+            {
+                AddPattern(new Pattern(N, x, y, indices), patternCounts, patternDict);
+            }
+
+        // Set propagators and other things
+        T = patternCounts.Count;
+        patterns = new Pattern[T];
+        stationary = new double[T];
+        propagator = new int[overlap_N, overlap_N][][];
+
+        int idx = 0;
+        foreach (long key in patternCounts.Keys)
+        {
+            patterns[idx] = patternDict[key];
+            stationary[idx] = patternCounts[key];
+            idx++;
+        }
+    }
 
     #endregion
 
@@ -148,75 +201,23 @@ class PathOverlapModel
         this.periodicOut = periodicOutput;
 
         // We use outsize to get the size of the bitmap image to prevent issues when accessing bitmap images across multiple threads
-        this.insize = new RectInt(0, 0, input.cellBounds.size.x, input.cellBounds.size.y);
-        this.outsize = new RectInt(0, 0, output.cellBounds.size.x, output.cellBounds.size.y);
+        this.insize = this.input.GetBounds();
+        this.outsize = this.output.GetBounds();
 
+        colors = new List<Color>();
         byte[,] indices = IndexColours(input, insize);
         output_idx = IndexColours(output, outsize);
 
-        int outflatsize = outsize.width * outsize.height;
-        wave = new bool[outflatsize][];
+        FillSpecialColorIndices();
 
-        changes = new bool[outflatsize];
-        indexstack = new Stack<int>();
+        wave = new bool[outsize.width, outsize.height][];
+        changes = new bool[outsize.width, outsize.height];
+        indexstack = new Stack<Vector2Int>();
 
-        int C = 3; // We know there is only 3 colors possible
-
-        // Generate all patterns
-        // Store them using a unique identifier
-        Dictionary<long, int> patternCounts = new Dictionary<long, int>();
-        Dictionary<long, Pattern> patternDict = new Dictionary<long, Pattern>();
-
-        Pattern temp;
-        long index;
-
-        //TODO: add periodic input and output?
-        for (int y = 0; y < (periodicIn ? insize.height : insize.height - N + 1); ++y)
-            for (int x = 0; x < (periodicIn ? insize.width : insize.width - N + 1); ++x)
-            {
-                temp = new Pattern(N, x, y, indices);
-
-                // Filter out patterns that don't contain a path
-                //if (!temp.ContainsColor(path_idx)) continue;
-
-                // Filter out patterns that only has free space
-                //if (temp.ContainsOnly(freespace_idx)) continue;
-
-                index = temp.GetIndex(C);
-
-                //TODO: Extend with reflexions, rotations, etc..
-                if (patternCounts.ContainsKey(index))
-                {
-                    //Don't add up for freespace, we want it to be only one
-                    if (temp.ContainsOnly(freespace_idx)) continue;
-
-                    patternCounts[index]++;
-                }
-                else
-                {
-                    patternCounts.Add(index, 1);
-                    patternDict.Add(index, temp);
-                }
-            }
-
-        // Set propagators and other things
-        T = patternCounts.Count;    //Number of different patterns from input
-        patterns = new Pattern[T];
-        stationary = new double[T]; //This is basically counts for patterns
-        propagator = new int[overlap_N, overlap_N][][];
-
-        int idx = 0;
-
-        foreach (long key in patternCounts.Keys)
-        {
-            patterns[idx] = patternDict[key];
-            stationary[idx] = patternCounts[key];
-            idx++;
-        }
+        ExtractPatternFromInput(indices);
 
         // Initialize wave array
-        for (int i = 0; i < wave.Length; ++i)
-            wave[i] = new bool[T];
+        wave.ForEach((x, y) => wave[x, y] = new bool[T]);
 
         // Populate propagator
         for (int x = 0; x < overlap_N; ++x)
@@ -236,11 +237,11 @@ class PathOverlapModel
     /// <summary>
     /// Verify wether the pattern indexed at t can fit into
     /// the output at index i
+    /// 
+    /// TODO: would there be some way to loosen the comparison with obstacles? i.e. the general form of the pattern matches but 
     /// </summary>
-    public bool PatternFits(int i, Pattern p)
+    public bool PatternFits(int x, int y, Pattern p)
     {
-        int x = i % outsize.width,
-            y = i / outsize.width;
         byte patt_col, out_col;
 
         for (int dx = 0; dx < N; ++dx)
@@ -250,13 +251,8 @@ class PathOverlapModel
                 out_col = output_idx[(x + dx) % outsize.width, (y + dy) % outsize.height];
 
                 // See if pattern matches the area represented by index i.
-                // Matches means 
-                if (patt_col == path_idx) {
-                    // If there is a path in the pattern, output should have a free space
-                    if (out_col != freespace_idx) return false;
-                } else {
-                    if (out_col != patt_col) return false;
-                }
+                if ((patt_col == obstacle_idx) != (out_col == obstacle_idx))
+                    return false;
             }
         return true;
     }
@@ -266,16 +262,15 @@ class PathOverlapModel
     /// </summary>
     public void Clear()
     {
-        for (int i = 0; i < wave.Length; i++)
+        wave.ForEach((w, x, y) =>
         {
-            if (OnBoundary(i)) continue;
+            if (OnBoundary(x, y)) return;
 
-            for (int t = 0; t < T; t++)
-                // Filter out patterns that doesn't fit on the output
-                wave[i][t] = PatternFits(i, patterns[t]);
+            for (int t = 0; t < T; ++t)
+                w[t] = PatternFits(x, y, patterns[t]);
 
-            changes[i] = false;
-        }
+            changes[x, y] = false;
+        });
     }
 
     /// <summary>
@@ -283,7 +278,6 @@ class PathOverlapModel
     /// </summary>
     public void Init(int seed)
     {
-        observed = false;
         indexstack.Clear();
 
         FillLogs();
@@ -311,14 +305,12 @@ class PathOverlapModel
     /// </summary>
     public void PropagateFixedWaves(bool propagate)
     {
-        for (int i = 0; i < wave.Length; ++i)
-        {
-            if (OnBoundary(i)) continue;
-            bool[] w = wave[i];
+        wave.ForEach((w, x, y) => {
+            if (OnBoundary(x, y)) return;
 
             if (w.Count(t => t) == 1)
-                Change(i);
-        }
+                Change(new Vector2Int(x, y));
+        });
 
         if (propagate)
             Propagate();
@@ -330,71 +322,72 @@ class PathOverlapModel
     public bool? Observe()
     {
         double minEnt = 1e+3;
-        int indexminEnt = -1;
+        Vector2Int indexminEnt = new Vector2Int(-1, -1);
 
         double minCount = Double.PositiveInfinity;
-        int indexminCount = -1;
+        Vector2Int indexminCount = new Vector2Int(-1, -1);
 
-        for (int i = 0; i < wave.Length; ++i)
-        {
-            if (OnBoundary(i)) continue;
+        bool[] w;
 
-            bool[] w = wave[i];
-            double amount = 0;
-            double sum = 0;
 
-            for (int t = 0; t < T; ++t)
+        for (int x = 0; x <wave.GetLength(0); ++x)
+            for (int y = 0; y <wave.GetLength(1); ++y)
             {
-                if (w[t])
+                if (OnBoundary(x, y)) continue;
+
+                w = wave[x, y];
+                double amount = 0;
+                double sum = 0;
+
+                for (int t = 0; t < T; ++t)
                 {
-                    amount += 1;
-                    sum += stationary[t];
+                    if (w[t])
+                    {
+                        amount += 1;
+                        sum += stationary[t];
+                    }
+                }
+
+                // Cannot divide by zero, and we divide by the sum when finding the entropy
+                if (sum == 0) return false;
+
+                // Calculate entropy
+                double noise = 1e-6 * random.NextDouble();
+                double entropy = CalculateEntropy(w, amount, sum);
+                
+                if (amount > 1 && amount + noise < minCount)
+                {
+                    minCount = amount + noise;
+                    indexminCount.x = x;
+                    indexminCount.y = y;
+                }
+
+                // Store as min if smaller than min
+                // For equal values, we use a small random value to decide which one to use
+                if (entropy > 0 && entropy + noise < minEnt)
+                {
+                    minEnt = entropy + noise;
+                    indexminEnt.x = x;
+                    indexminEnt.y = y;
                 }
             }
 
-            // Cannot divide by zero, and we divide by the sum when finding the entropy
-            //if (sum == 0) return false; //We will not fill the whole area, and it is highly possible that some places cannot be filled (such as inside of obstacles)
-            // therefore, we must not stop when we encounter a sum of 0
-            if (sum == 0) continue;
-
-            // Calculate entropy
-            double noise = 1e-6 * random.NextDouble();
-            double entropy = CalculateEntropy(w, amount, sum);
-                
-            if (amount > 1 && amount + noise < minCount)
-            {
-                minCount = amount + noise;
-                indexminCount = i;
-            }
-
-            // Store as min if smaller than min
-            // For equal values, we use a small random value to decide which one to use
-            if (entropy > 0 && entropy + noise < minEnt)
-            {
-                minEnt = entropy + noise;
-                indexminEnt = i;
-            }
-        }
-
-        // If we haven't found a min, we fill the observed array.
-        //TODO: think of another way to output result?
-        if (indexminEnt == -1)
-        {
-            observed = true;
-            // Returning true means the algorithm converged
+        // Returning true means the algorithm converged
+        if (indexminEnt.x == -1)
             return true;
-        }
 
         double[] distribution = new double[T];
+        bool[] w1 = wave[indexminEnt.x, indexminEnt.y];
+
         for (int t = 0; t < T; t++)
-            distribution[t] = wave[indexminEnt][t] ? stationary[t] : 0;
+            distribution[t] = w1[t] ? stationary[t] : 0;
 
         // Choose one pattern 
         int r = distribution.Random(random.NextDouble());
 
         for (int t = 0; t < T; t++)
             // Set one pattern r in T to be observed. Set others to false
-            wave[indexminEnt][t] = t == r;
+            w1[t] = t == r;
 
         Change(indexminEnt);
 
@@ -406,8 +399,8 @@ class PathOverlapModel
     {
         while (indexstack.Count > 0)
         {
-            int i1 = indexstack.Pop();
-            changes[i1] = false;
+            Vector2Int i1 = indexstack.Pop();
+            changes[i1.x, i1.y] = false;
 
             _Propagate(i1);
         }
@@ -422,9 +415,8 @@ class PathOverlapModel
         if (indexstack.Count == 0)
             return false;
 
-        int i1;
-        i1 = indexstack.Pop();
-        changes[i1] = false;
+        Vector2Int i1 = indexstack.Pop();
+        changes[i1.x, i1.y] = false;
 
         _Propagate(i1);
 
@@ -432,12 +424,9 @@ class PathOverlapModel
     }
 
         
-    private void _Propagate(int i1)
+    private void _Propagate(Vector2Int i1)
     {
-        bool[] w1 = wave[i1];
-
-        //Extrapolate x and y coordinates based on the one-dimensionnal index i1
-        int x1 = i1 % outsize.width, y1 = i1 / outsize.width;
+        bool[] w1 = wave[i1.x, i1.y];
 
         if (w1.All(w => !w)) {
             // For debug purposes
@@ -447,14 +436,13 @@ class PathOverlapModel
         for (int dx = -N + 1; dx < N; ++dx)
             for (int dy = -N + 1; dy < N; ++dy)
             {
-                int x2 = GetSecondIndex(x1, dx, outsize.width),
-                    y2 = GetSecondIndex(y1, dy, outsize.height);
+                int x2 = GetSecondIndex(i1.x, dx, outsize.width),
+                    y2 = GetSecondIndex(i1.y, dy, outsize.height);
 
                 // If on boundary
                 if (OnBoundary(x2, y2)) continue;
 
-                int i2 = x2 + y2 * outsize.width;
-                bool[] w2 = wave[i2];
+                bool[] w2 = wave[x2, y2];
                 int[][] prop = propagator[N - 1 - dx, N - 1 - dy];
 
                 for (int t2 = 0; t2 < T; ++t2)
@@ -468,10 +456,11 @@ class PathOverlapModel
                     {
                         // If we haven't found an overlap, set w2 to false
                         w2[t2] = false;
-                        Change(i2);
+                        Change(new Vector2Int(x2, y2));
                     }
 
                     if (w2.All(w => !w))
+                        // Stops propagation when it fails
                         return;
                 }
             }
@@ -479,32 +468,29 @@ class PathOverlapModel
 
     public void Print(Tile blanktile)
     {
-        Color[] data = new Color[wave.Length];
+        bool[] w;
 
-        // Accumulate all possible values remaining for each pixel
-        for (int i = 0; i < wave.Length; ++i)
-        {
+        wave.ForEach((x, y) => {
             float contributors = 0, r = 0, g = 0, b = 0;
-            int x = i % outsize.width, y = i / outsize.width;
 
             for (int dy = 0; dy < N; ++dy)
-                for (int dx = 0; dx < N; ++dx)
+                for(int dx = 0; dx < N; ++dx)
                 {
                     int sx = x - dx;
                     if (sx < 0) sx += outsize.width;
 
                     int sy = y - dy;
-                    if (sy < 0) sy += outsize.width;
+                    if (sy < 0) sy += outsize.height;
 
-                    int s = sx + sy * outsize.width;
-                    if (OnBoundary(s)) continue;
+                    if (OnBoundary(sx, sy)) continue;
 
+                    w = wave[sx, sy];
                     for (int t = 0; t < T; ++t)
                     {
-                        if (wave[s][t])
+                        if (w[t])
                         {
                             contributors++;
-                            Color c = GetColorFromIndex(patterns[t].Get(dx, dy));
+                            Color c = colors[patterns[t].Get(dx, dy)];
                             r += c.r;
                             g += c.g;
                             b += c.b;
@@ -512,176 +498,38 @@ class PathOverlapModel
                     }
                 }
 
-            if (contributors == 0)
-            // Output the original image's pixel value
-            { }
-            else
+            if (contributors != 0)
             {
                 Vector3Int pos = new Vector3Int(x, y, 0);
-                Tile t = GameObject.Instantiate(blanktile);
-                t.color = new Color(r / contributors, g / contributors, b / contributors);
+                Color newCol = new Color(r / contributors, g / contributors, b / contributors);
 
-                output.SetTile(pos, t);
+                // An attemp at changing only the relevant tile (i.e. change it only if the color is different)
+                if (output.GetColor(pos) != newCol)
+                {
+                    Tile t = GameObject.Instantiate(blanktile);
+                    t.color = newCol;
+                    output.SetTile(pos, t);
+                }
             }
-        }
+        });
     }
 
+    /// <summary>
+    /// Return the list of pattern that are possible for the selected position
+    /// </summary>
+    public Dictionary<int, Texture2D> GetPatternsForWave(int x, int y)
+    {
+        Dictionary<int, Texture2D> res = new Dictionary<int, Texture2D>();
 
+        bool[] w = wave[x, y];
+        for (int t = 0; t < T; ++t)
+        {
+            if (w[t])
+                res.Add(t, patterns[t].Print(colors));
+        }
 
-    #region Bitmap Functions
-
-    //private int ToBitmapData(Color c)
-    //{
-    //    return unchecked((c.A << 24) | (c.R << 16) | (c.G << 8) | (c.B));
-    //}
-
-    //private int AverageToBitmapData(int red, int green, int blue, int contribs)
-    //{
-    //    return unchecked(
-    //        (int)0xff000000 | ((red / contribs) << 16) | ((green / contribs) << 8) | blue / contribs);
-    //}
-
-    //private Bitmap GetBitmapFromData(int[] bitmapData, int width, int height)
-    //{
-    //    Bitmap result = new Bitmap(width, height);
-    //    var bits = result.LockBits(new Rectangle(0, 0, result.Width, result.Height),
-    //        ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-
-    //    System.Runtime.InteropServices.Marshal.Copy(bitmapData, 0, bits.Scan0, bitmapData.Length);
-    //    result.UnlockBits(bits);
-    //    return result;
-    //}
-
-    //public Bitmap[] PrintPatterns()
-    //{
-    //    Bitmap[] res = new Bitmap[T];
-    //    int[] bitmapData = new int[N * N];
-    //    Color c;
-    //    Pattern p;
-
-    //    for (int i = 0; i < T; ++i)
-    //    {
-    //        p = patterns[i];
-    //        for (int x = 0; x < N; ++x)
-    //            for (int y = 0; y < N; ++y)
-    //            {
-    //                c = GetColorFromIndex(p.Get(x, y));
-    //                bitmapData[x + y * N] = ToBitmapData(c);
-    //            }
-
-    //        res[i] = GetBitmapFromData(bitmapData, N, N);
-    //    }
-
-    //    return res;
-    //}
-
-    //public Bitmap[] PrintOverlaps(int p1)
-    //{
-    //    List<Bitmap> results = new List<Bitmap>();
-
-    //    // 1. Fill the list of overlaps
-    //    for (int x = 0; x < overlap_N; ++x)
-    //        for (int y = 0; y < overlap_N; ++y)
-    //        {
-    //            int dx = x - N + 1,
-    //                dy = y - N + 1;
-
-    //            foreach (int p2 in propagator[x, y][p1])
-    //                results.Add(PrintOverlap(p1, p2, dx, dy));
-    //        }
-
-    //    // 2. Return the list of bitmap
-    //    return results.ToArray();
-    //}
-
-    //private Bitmap PrintOverlap(int i1, int i2, int dx, int dy)
-    //{
-    //    Pattern p1 = patterns[i1],
-    //        p2 = patterns[i2];
-    //    int xmax = N + Math.Abs(dx),
-    //        ymax = N + Math.Abs(dy);
-    //    int p2xmin = dx, p2xmax = dx + N,
-    //        p2ymin = dy, p2ymax = dy + N; 
-
-    //    int[] bitmapData = new int[xmax * ymax];
-    //    for (int i = 0; i < bitmapData.Length; ++i)
-    //        //Default color
-    //        bitmapData[i] = ToBitmapData(Color.gray);
-
-    //    int bx, by;
-
-    //    // P1
-    //    for (int x = 0; x < N; ++x)
-    //        for (int y = 0; y < N; ++y)
-    //        {
-    //            bx = dx < 0 ? x - dx : x;
-    //            by = dy < 0 ? y - dy : x;
-
-    //            Color c = GetColorFromIndex(p1.Get(x, y));
-    //            bitmapData[by * N + bx] = ToBitmapData(c);
-    //        }
-
-    //    for (int x = 0; x < N; ++x)
-    //        for (int y = 0; y < N; ++y)
-    //        {
-    //            bx = dx < 0 ? x : x + dx;
-    //            by = dy < 0 ? y : y + dy;
-
-    //            Color c = Color.FromArgb(128, GetColorFromIndex(p2.Get(x, y)));
-    //            bitmapData[by * N + bx] = ToBitmapData(c);
-    //        }
-
-    //    return GetBitmapFromData(bitmapData, xmax, ymax);
-    //}
-
-    //public Bitmap Graphics()
-    //{
-    //    int[] bitmapData = new int[output.Width * output.Height];
-
-    //    // Accumulate all possible values remaining for each pixel
-    //    for (int i = 0; i < wave.Length; ++i)
-    //    {
-    //        int contributors = 0, r = 0, g = 0, b = 0;
-    //        int x = i % output.Width, y = i / output.Width;
-
-    //        for (int dy = 0; dy < N; ++dy)
-    //            for (int dx = 0; dx < N; ++dx)
-    //            {
-    //                int sx = x - dx;
-    //                if (sx < 0) sx += output.Width;
-
-    //                int sy = y - dy;
-    //                if (sy < 0) sy += output.Width;
-
-    //                int s = sx + sy * output.Width;
-    //                if (OnBoundary(s)) continue;
-
-    //                for (int t = 0; t < T; ++t)
-    //                {
-    //                    if (wave[s][t])
-    //                    {
-    //                        contributors++;
-    //                        Color c = GetColorFromIndex(patterns[t].Get(dx, dy));
-    //                        r += c.R;
-    //                        g += c.G;
-    //                        b += c.B;
-    //                    }
-    //                }
-    //            }
-
-    //        if (contributors == 0)
-    //            // Output the original image's pixel value
-    //            bitmapData[i] = ToBitmapData(output.GetPixel(x, y));
-    //        else
-    //            bitmapData[i] = AverageToBitmapData(r, g, b, contributors);
-    //    }
-
-    //    // Construct bitmap using bitmap data
-    //    return GetBitmapFromData(bitmapData, output.Width, output.Height);
-    //}
-
-
-    #endregion
+        return res;
+    }
 
 
 }

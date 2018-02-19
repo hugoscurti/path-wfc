@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 public class Pattern
 {
@@ -18,6 +19,15 @@ public class Pattern
 
         Func<int, int, byte> f = (dx, dy) => colorIndices[(x + dx) % width, (y + dy) % height];
         indices = ApplyPattern(f);
+    }
+
+    /// <summary>
+    /// Constructor that creates a pattern containing the same color for each position
+    /// </summary>
+    public Pattern(int N, byte colorIndex)
+    {
+        this.N = N;
+        indices = ApplyPattern((x, y) => colorIndex);
     }
 
     #endregion
@@ -116,6 +126,19 @@ public class Pattern
     public byte Get(int x, int y)
     {
         return indices[x + y * N];
+    }
+
+    public Texture2D Print(List<Color> colors)
+    {
+        Texture2D res = new Texture2D(N, N);
+
+        for (int x = 0; x < N; ++x)
+            for(int y = 0; y < N; ++y)
+            {
+                res.SetPixel(x, y, colors[Get(x, y)]);
+            }
+
+        return res;
     }
 
     #endregion
