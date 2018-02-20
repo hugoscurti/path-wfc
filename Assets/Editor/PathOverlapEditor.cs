@@ -10,20 +10,27 @@ public class PathOverlapEditor : Editor
 
     public override void OnInspectorGUI()
     {
+        var src = target as PathOverlap;
+
         base.OnInspectorGUI();
 
-        // Add button to execute algorithm
-
-        if (GUILayout.Button("Play"))
+        // Change button based on running state
+        if (src.RunState == PathOverlap.State.Running)
         {
-            // Execute the thing
-            (target as PathOverlap).ExecuteAlgorithm();
+            if (GUILayout.Button("Pause"))
+                src.Pause();
+        } else
+        {
+            if (GUILayout.Button("Play"))
+                src.ExecuteAlgorithm(src.RunState == PathOverlap.State.Stopped);
         }
+        
 
         if (GUILayout.Button("Stop"))
-        {
-            (target as PathOverlap).Cancel();
-        }
+            src.Cancel();
+
+        if (GUILayout.Button("Reset"))
+            src.ResetOutput();
 
     }
 

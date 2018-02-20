@@ -140,14 +140,15 @@ class PathOverlapModel
     }
 
 
-    private void AddPattern(Pattern pattern, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
+    private void AddPattern(Pattern pattern, Dictionary<long, int> counts, Dictionary<long, Pattern> dict, bool addCount)
     {
         long index = pattern.GetIndex(C);
 
         //TODO: Extend with reflexions, rotations?
         if (counts.ContainsKey(index))
         {
-            counts[index]++;
+            if (addCount)
+                counts[index]++;
         }
         else
         {
@@ -156,7 +157,7 @@ class PathOverlapModel
         }
     }
 
-    private void ExtractPatternFromInput(byte[,] indices)
+    private void ExtractPattern(byte[,] indices, bool fromOutput)
     {
         // Generate all patterns
         // Store them using a unique identifier
@@ -164,13 +165,13 @@ class PathOverlapModel
         Dictionary<long, Pattern> patternDict = new Dictionary<long, Pattern>();
 
         // Manually insert the freespace pattern
-        AddPattern(new Pattern(N, (byte)freespace_idx), patternCounts, patternDict);
+        AddPattern(new Pattern(N, (byte)freespace_idx), patternCounts, patternDict, true);
 
-        for (int y = 0; y < (periodicIn ? insize.height: insize.height - N + 1); ++y)
-            for (int x = 0; x < (periodicIn ? insize.width : insize.width - N + 1); ++x)
-            {
-                AddPattern(new Pattern(N, x, y, indices), patternCounts, patternDict);
-            }
+        _ExtractPattern(periodicIn, insize, indices, true, patternCounts, patternDict);
+
+        if (fromOutput)
+            // If pattern exists, we don't add the count to it
+            _ExtractPattern(periodicOut, outsize, output_idx, false, patternCounts, patternDict);
 
         // Set propagators and other things
         T = patternCounts.Count;
@@ -187,11 +188,20 @@ class PathOverlapModel
         }
     }
 
+    private void _ExtractPattern(bool periodic, RectInt size, byte[,] indices, bool addCount, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
+    {
+        for (int y = 0; y < (periodic ? size.height : size.height - N + 1); ++y)
+            for (int x = 0; x < (periodic ? size.width : size.width - N + 1); ++x)
+            {
+                AddPattern(new Pattern(N, x, y, indices), counts, dict, addCount);
+            }
+    }
+
     #endregion
 
     #region Contructor
 
-    public PathOverlapModel(Tilemap input, Tilemap output, int N, bool periodicInput, bool periodicOutput)
+    public PathOverlapModel(Tilemap input, Tilemap output, int N, bool periodicInput, bool periodicOutput, bool generatePatternsFromOutput)
     {
         this.N = N;
         this.overlap_N = 2 * N - 1;
@@ -214,7 +224,7 @@ class PathOverlapModel
         changes = new bool[outsize.width, outsize.height];
         indexstack = new Stack<Vector2Int>();
 
-        ExtractPatternFromInput(indices);
+        ExtractPattern(indices, generatePatternsFromOutput);
 
         // Initialize wave array
         wave.ForEach((x, y) => wave[x, y] = new bool[T]);

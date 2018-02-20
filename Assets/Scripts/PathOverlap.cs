@@ -7,18 +7,38 @@ using UnityEngine.Tilemaps;
 
 public class PathOverlap : MonoBehaviour {
 
-    Thread _thread;
-    bool _threadRunning;
-    bool? workDone;
+    public enum State
+    {
+        Stopped,
+        Running,
+        Paused
+    }
 
+    // Public variables
     public bool periodicInput;
     public bool periodicOutput;
+
+    public bool generatePatternsFromOutput;
+
+    // Internal variables
+
+    Thread _thread;
+
+    State _runstate;
+    public State RunState { get { return _runstate; } }
+
+    bool? workDone;
+
+    bool firstPropagateDone;
 
     Tile blankTile;
 
     IEnumerator progress;
 
+    // TODO: If we want to fix tiles, we should instantiate Model when we display the map instead of instantiating it before pressing play
     private PathOverlapModel model;
+
+    int N = 3;
 
     private void Awake()
     {
@@ -29,23 +49,35 @@ public class PathOverlap : MonoBehaviour {
     {
     }
 
-    [Range(2, 6)]
-    public int N = 3;
 
     public void Cancel()
     {
-        _threadRunning = false;
+        _runstate = State.Stopped;
     }
 
-
-	public void ExecuteAlgorithm()
+    public void Pause()
     {
-        // Prepare variables for thread
-        MapLoader mapLoader = GetComponent<MapLoader>();
-        blankTile = mapLoader.blankTile;
+        _runstate = State.Paused;
+    }
 
-        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, this.N, this.periodicInput, this.periodicOutput);
-        model.Init((int)Time.time);
+    public void ResetOutput()
+    {
+        _runstate = State.Stopped;
+        GetComponent<MapLoader>().ResetOutput();
+    }
+
+    public void ExecuteAlgorithm(bool reset = true)
+    {
+        if (reset)
+        {
+            // Prepare variables for thread
+            MapLoader mapLoader = GetComponent<MapLoader>();
+            blankTile = mapLoader.blankTile;
+
+            model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, this.N, this.periodicInput, this.periodicOutput, this.generatePatternsFromOutput);
+            model.Init((int)Time.time);
+            firstPropagateDone = false;
+        }
 
         _thread = new Thread(ThreadExecute);
         _thread.Start();
@@ -66,15 +98,13 @@ public class PathOverlap : MonoBehaviour {
 
     private IEnumerator ShowProgress()
     {
-        int i = 0;
-
         do
         {
             model.Print(blankTile);
 
             yield return new WaitForSeconds(1);
 
-        } while (_threadRunning);
+        } while (_runstate == State.Running);
 
         // Final print after algorithm is done
         model.Print(blankTile);
@@ -84,12 +114,16 @@ public class PathOverlap : MonoBehaviour {
 
     private void ThreadExecute()
     {
-        _threadRunning = true;
-        
-        model.PropagateFixedWaves(true);
+        _runstate = State.Running;
+
+        if (!firstPropagateDone)
+        {
+            model.PropagateFixedWaves(true);
+            firstPropagateDone = true;
+        }
 
         workDone = null;
-        while (_threadRunning && workDone == null)
+        while (_runstate == State.Running && workDone == null)
         {
             model.Propagate();
 
@@ -97,21 +131,26 @@ public class PathOverlap : MonoBehaviour {
             workDone = model.Observe();
         }
 
-        _threadRunning = false;
-
         if (!workDone.HasValue)
-            Debug.Log("Cancelled");
-        else if (workDone.Value)
-            Debug.Log("Successful");
-        else
-            Debug.Log("Failed");
+        {
+            Debug.Log(_runstate == State.Stopped ? "Cancelled" : "Paused");
+        } else
+        {
+            // Algorithm has finished, we put in stopped state
+            _runstate = State.Stopped;
+
+            if (workDone.Value)
+                Debug.Log("Successful");
+            else
+                Debug.Log("Failed");
+        }
     }
 
     private void OnDisable()
     {
-        if (_threadRunning)
+        if (_runstate == State.Running)
         {
-            _threadRunning = false;
+            _runstate = State.Stopped;
             _thread.Join();
         }
     }

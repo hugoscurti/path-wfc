@@ -58,11 +58,6 @@ public class MapLoaderEditor : Editor {
             (target as MapLoader).ClearMaps();
         }
 
-        if (GUILayout.Button("Reset"))
-        {
-            (target as MapLoader).ResetOutput();
-        }
-
         // Apply changes to the serialized properties
         serializedObject.ApplyModifiedProperties();
     }
