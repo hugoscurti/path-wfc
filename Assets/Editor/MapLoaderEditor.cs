@@ -51,6 +51,9 @@ public class MapLoaderEditor : Editor {
 
             map = outputmaps[selectedOutput.intValue];
             src.LoadMap(map, false);
+
+            // Finally, init the model
+            src.InitModel();
         }
 
         if (GUILayout.Button("Clear"))

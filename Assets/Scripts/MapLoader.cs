@@ -23,9 +23,6 @@ public class MapLoader : MonoBehaviour {
 
     private Texture2D output;
 
-    public Tile blankTile;
-
-
     public void LoadMap(FileInfo file, bool input)
     {
         Tilemap target = input ? inputTarget : outputTarget;
@@ -57,14 +54,21 @@ public class MapLoader : MonoBehaviour {
         PaintTexture(source, target);
     }
 
+    public void InitModel()
+    {
+        var modelComponent = GetComponent<PathOverlap>();
+        modelComponent.InstantiateModel();
+    }
+
     private void PaintTexture(Texture2D source, Tilemap target)
     {
-        Tile tile;
+        Tile tile, 
+            blank = Resources.Load<Tile>("Tiles/White");
 
         for (int x = 0; x < source.width; ++x)
             for (int y = 0; y < source.height; ++y)
             {
-                tile = Instantiate(blankTile);
+                tile = Instantiate(blank);
                 tile.color = source.GetPixel(x, y);
 
                 target.SetTile(new Vector3Int(x, y, 0), tile);

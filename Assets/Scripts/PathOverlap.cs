@@ -19,40 +19,37 @@ public class PathOverlap : MonoBehaviour {
     public bool periodicOutput;
 
     public bool generatePatternsFromOutput;
+    public bool useOutputMaskPatterns;
 
     // Internal variables
-
     Thread _thread;
 
     State _runstate;
     public State RunState { get { return _runstate; } }
 
     bool? workDone;
-
     bool firstPropagateDone;
 
-    Tile blankTile;
-
     IEnumerator progress;
+    // TODO: Incorporate this in the update loop
+    float secondsBetweenUpdates = 0.5f;
+    float lastUpdate = 0f;
 
     // TODO: If we want to fix tiles, we should instantiate Model when we display the map instead of instantiating it before pressing play
     private PathOverlapModel model;
 
     int N = 3;
 
-    private void Awake()
+    public PathOverlapModel GetModel()
     {
+        return model;
     }
-
-
-    private void OnGUI()
-    {
-    }
-
 
     public void Cancel()
     {
         _runstate = State.Stopped;
+        _thread.Abort();
+        model.Init((int)Time.realtimeSinceStartup);
     }
 
     public void Pause()
@@ -63,19 +60,33 @@ public class PathOverlap : MonoBehaviour {
     public void ResetOutput()
     {
         _runstate = State.Stopped;
+        _thread.Abort();
         GetComponent<MapLoader>().ResetOutput();
+        model.Init((int)Time.realtimeSinceStartup);
+    }
+
+    // Call this when the maps are loaded
+    public void InstantiateModel()
+    {
+        // Prepare variables for thread
+        MapLoader mapLoader = GetComponent<MapLoader>();
+
+        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, this.N, this.periodicInput, this.periodicOutput, this.generatePatternsFromOutput);
+        model.Init((int)Time.realtimeSinceStartup);
+        model.Print(); // Initial print
     }
 
     public void ExecuteAlgorithm(bool reset = true)
     {
+        if (model == null)
+        {
+            Debug.LogError("You must load a map before executing the algortihm");
+            return;
+        }
+
+        // This enables having pause and stop buttons 
         if (reset)
         {
-            // Prepare variables for thread
-            MapLoader mapLoader = GetComponent<MapLoader>();
-            blankTile = mapLoader.blankTile;
-
-            model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, this.N, this.periodicInput, this.periodicOutput, this.generatePatternsFromOutput);
-            model.Init((int)Time.time);
             firstPropagateDone = false;
         }
 
@@ -89,25 +100,29 @@ public class PathOverlap : MonoBehaviour {
 
     void EditorUpdate()
     {
-        var hasNext = progress.MoveNext();
+        if (Time.realtimeSinceStartup - lastUpdate > secondsBetweenUpdates)
+        {
+            var hasNext = progress.MoveNext();
+            lastUpdate = Time.realtimeSinceStartup;
+            if (!hasNext)
+                // Unregister event
+                EditorApplication.update -= EditorUpdate;
+        }
 
-        if (!hasNext)
-            // Unregister event
-            EditorApplication.update -= EditorUpdate;
+        
     }
 
     private IEnumerator ShowProgress()
     {
         do
         {
-            model.Print(blankTile);
-
-            yield return new WaitForSeconds(1);
+            model.Print();
+            yield return null;
 
         } while (_runstate == State.Running);
 
         // Final print after algorithm is done
-        model.Print(blankTile);
+        model.Print();
 
         yield return null;
     }
