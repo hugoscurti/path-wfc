@@ -7,7 +7,7 @@ using UnityEngine.Tilemaps;
 
 using Utilities;
 
-class PathOverlapModel
+public class PathOverlapModel
 {
     int N;  //Edge size of pattern
     int T;  //Total number of unique patterns
@@ -310,6 +310,17 @@ class PathOverlapModel
         }
     }
 
+    public void FixWave(Vector2Int pos, int patternIdx)
+    {
+        bool[] w = wave[pos.x, pos.y];
+
+        for (int t = 0; t < T; ++t)
+            w[t] = t == patternIdx;
+
+        Change(pos);
+        Propagate();
+    }
+
     /// <summary>
     /// Gets all the tiles that have fixed pattern (i.e. one possible pattern) and propagates them)
     /// </summary>
@@ -476,8 +487,10 @@ class PathOverlapModel
             }
     }
 
-    public void Print(Tile blanktile)
+    public void Print()
     {
+        Tile blanktile = Resources.Load<Tile>("Tiles/White");
+
         bool[] w;
 
         wave.ForEach((x, y) => {
@@ -527,11 +540,11 @@ class PathOverlapModel
     /// <summary>
     /// Return the list of pattern that are possible for the selected position
     /// </summary>
-    public Dictionary<int, Texture2D> GetPatternsForWave(int x, int y)
+    public Dictionary<int, Texture2D> GetPatternsForWave(Vector2Int p)
     {
         Dictionary<int, Texture2D> res = new Dictionary<int, Texture2D>();
 
-        bool[] w = wave[x, y];
+        bool[] w = wave[p.x, p.y];
         for (int t = 0; t < T; ++t)
         {
             if (w[t])

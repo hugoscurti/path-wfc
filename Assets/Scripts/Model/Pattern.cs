@@ -130,13 +130,17 @@ public class Pattern
 
     public Texture2D Print(List<Color> colors)
     {
-        Texture2D res = new Texture2D(N, N);
+        Texture2D res = new Texture2D(N, N, TextureFormat.RGBAFloat, false);
+        res.filterMode = FilterMode.Point;
+        res.alphaIsTransparency = true;
 
         for (int x = 0; x < N; ++x)
             for(int y = 0; y < N; ++y)
             {
                 res.SetPixel(x, y, colors[Get(x, y)]);
             }
+
+        res.Apply();
 
         return res;
     }
