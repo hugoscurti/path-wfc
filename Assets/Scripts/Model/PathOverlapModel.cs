@@ -50,6 +50,8 @@ public class PathOverlapModel
     bool periodicIn = true,
         periodicOut = true;
 
+    bool addTransforms;
+
     #region Utility Functions
 
     /// <summary>
@@ -190,10 +192,30 @@ public class PathOverlapModel
 
     private void _ExtractPattern(bool periodic, RectInt size, byte[,] indices, bool addCount, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
     {
+        Pattern p;
         for (int y = 0; y < (periodic ? size.height : size.height - N + 1); ++y)
             for (int x = 0; x < (periodic ? size.width : size.width - N + 1); ++x)
             {
-                AddPattern(new Pattern(N, x, y, indices), counts, dict, addCount);
+                p = new Pattern(N, x, y, indices);
+
+                AddPattern(p, counts, dict, addCount);
+
+                if (this.addTransforms)
+                {
+                    AddPattern(p.Reflect(), counts, dict, addCount);
+                    Pattern p1 = p.Rotate();
+                    AddPattern(p1, counts, dict, addCount);
+
+                    AddPattern(p1.Reflect(), counts, dict, addCount);
+                    p1 = p1.Rotate();
+                    AddPattern(p1, counts, dict, addCount);
+
+                    AddPattern(p1.Reflect(), counts, dict, addCount);
+                    p1 = p1.Rotate();
+                    AddPattern(p1, counts, dict, addCount);
+
+                    AddPattern(p1.Reflect(), counts, dict, addCount);
+                }
             }
     }
 
@@ -201,7 +223,7 @@ public class PathOverlapModel
 
     #region Contructor
 
-    public PathOverlapModel(Tilemap input, Tilemap output, int N, bool periodicInput, bool periodicOutput, bool generatePatternsFromOutput)
+    public PathOverlapModel(Tilemap input, Tilemap output, int N, bool periodicInput, bool periodicOutput, bool generatePatternsFromOutput, bool addTransforms)
     {
         this.N = N;
         this.overlap_N = 2 * N - 1;
@@ -209,6 +231,8 @@ public class PathOverlapModel
         this.output = output;
         this.periodicIn = periodicInput;
         this.periodicOut = periodicOutput;
+
+        this.addTransforms = addTransforms;
 
         // We use outsize to get the size of the bitmap image to prevent issues when accessing bitmap images across multiple threads
         this.insize = this.input.GetBounds();

@@ -21,6 +21,15 @@ public class MapLoader : MonoBehaviour {
     public Tilemap inputTarget;
     public Tilemap outputTarget;
 
+    // Model parameters
+    public bool periodicInput;
+    public bool periodicOutput;
+
+    // TODO: experiment with mask patterns
+    //public bool useOutputMaskPatterns;
+    public bool generatePatternsFromOutput;
+    public bool addTransforms;
+
     private Texture2D output;
 
     public void LoadMap(FileInfo file, bool input)

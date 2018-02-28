@@ -14,6 +14,14 @@ public class SelectPatternEditorWindow : EditorWindow
     Dictionary<int, Texture2D> patterns;
     bool updateDict = false;
 
+    // Pattern info
+    int patternSize = 50;
+    int margin = 15;
+    int buttonHeight = 15;
+
+    // Scrollable
+    Vector2 scrollPos;
+
     public void Init(Tilemap target, PathOverlapModel model, Vector2Int tilepos)
     {
         //this.target = target;
@@ -34,11 +42,15 @@ public class SelectPatternEditorWindow : EditorWindow
 
         else
         {
-            int x = 20, y = 20;
+            float patternPerLine = (int)(position.width / (margin + patternSize));
+            int actualHeight = margin + (int)Math.Floor(patterns.Count / patternPerLine) * (buttonHeight + patternSize + margin);
+
+            scrollPos = GUI.BeginScrollView(new Rect(0, 0, position.width, position.height), scrollPos, new Rect(0, 0, position.width - 15, actualHeight));
+            int x = margin, y = margin;
 
             foreach (KeyValuePair<int, Texture2D> p in patterns)
             {
-                if (GUI.Button(new Rect(x, y, 100, 15), new GUIContent("Select")))
+                if (GUI.Button(new Rect(x, y, patternSize, buttonHeight), new GUIContent("Select")))
                 {
                     // Fix selected wave
                     model.FixWave(tilepos, p.Key);
@@ -46,15 +58,16 @@ public class SelectPatternEditorWindow : EditorWindow
                     updateDict = true;
                     break;
                 }
-                EditorGUI.DrawPreviewTexture(new Rect(x, y + 15, 100, 100), p.Value, null, ScaleMode.ScaleToFit);
+                EditorGUI.DrawPreviewTexture(new Rect(x, y + buttonHeight, patternSize, patternSize), p.Value, null, ScaleMode.ScaleToFit);
 
-                x += 110;
-                if (x + 110 > position.width )
+                x += patternSize + margin;
+                if (x + patternSize + margin > position.width )
                 {
-                    y += 120;
-                    x = 20;
+                    y += buttonHeight + patternSize + margin;
+                    x = margin;
                 }
             }
+            GUI.EndScrollView();
 
             if (updateDict)
             {

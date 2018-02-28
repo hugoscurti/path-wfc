@@ -30,6 +30,12 @@ public class Pattern
         indices = ApplyPattern((x, y) => colorIndex);
     }
 
+    private Pattern(Pattern p, Func<int, int, byte> transform)
+    {
+        this.N = p.N;
+        indices = ApplyPattern(transform);
+    }
+
     #endregion
 
     #region Functions
@@ -47,6 +53,17 @@ public class Pattern
                 result[x + y * N] = f(x, y);
 
         return result;
+    }
+
+    // Apply rotation from pattern and return new rotated pattern
+    public Pattern Rotate()
+    {
+        return new Pattern(this, (x, y) => this.indices[N - 1 - y + x * N]);
+    }
+
+    public Pattern Reflect()
+    {
+        return new Pattern(this, (x, y) => this.indices[N - 1 - x + y * N]);
     }
 
     public bool ContainsColor(byte colorIdx)

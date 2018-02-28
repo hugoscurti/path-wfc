@@ -7,6 +7,7 @@ using UnityEngine.Tilemaps;
 
 public class PathOverlap : MonoBehaviour {
 
+    string status = "Stopped";
     public enum State
     {
         Stopped,
@@ -14,12 +15,6 @@ public class PathOverlap : MonoBehaviour {
         Paused
     }
 
-    // Public variables
-    public bool periodicInput;
-    public bool periodicOutput;
-
-    public bool generatePatternsFromOutput;
-    public bool useOutputMaskPatterns;
 
     // Internal variables
     Thread _thread;
@@ -30,9 +25,9 @@ public class PathOverlap : MonoBehaviour {
     bool? workDone;
     bool firstPropagateDone;
 
+    [Range(0.1f, 4f)]
+    public float secondsBetweenUpdates = 0.5f;
     IEnumerator progress;
-    // TODO: Incorporate this in the update loop
-    float secondsBetweenUpdates = 0.5f;
     float lastUpdate = 0f;
 
     // TODO: If we want to fix tiles, we should instantiate Model when we display the map instead of instantiating it before pressing play
@@ -48,6 +43,7 @@ public class PathOverlap : MonoBehaviour {
     public void Cancel()
     {
         _runstate = State.Stopped;
+        status = "Stopped";
         _thread.Abort();
         model.Init((int)Time.realtimeSinceStartup);
     }
@@ -60,6 +56,7 @@ public class PathOverlap : MonoBehaviour {
     public void ResetOutput()
     {
         _runstate = State.Stopped;
+        status = "Stopped";
         _thread.Abort();
         GetComponent<MapLoader>().ResetOutput();
         model.Init((int)Time.realtimeSinceStartup);
@@ -71,7 +68,7 @@ public class PathOverlap : MonoBehaviour {
         // Prepare variables for thread
         MapLoader mapLoader = GetComponent<MapLoader>();
 
-        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, this.N, this.periodicInput, this.periodicOutput, this.generatePatternsFromOutput);
+        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, this.N, mapLoader.periodicInput, mapLoader.periodicOutput, mapLoader.generatePatternsFromOutput, mapLoader.addTransforms);
         model.Init((int)Time.realtimeSinceStartup);
         model.Print(); // Initial print
     }
@@ -108,8 +105,6 @@ public class PathOverlap : MonoBehaviour {
                 // Unregister event
                 EditorApplication.update -= EditorUpdate;
         }
-
-        
     }
 
     private IEnumerator ShowProgress()
@@ -127,9 +122,18 @@ public class PathOverlap : MonoBehaviour {
         yield return null;
     }
 
+    private void OnDrawGizmos()
+    {
+        var output = GetComponent<MapLoader>().outputTarget;
+        
+        // Show status of algorithm
+        Handles.Label(output.transform.position, $"Status : {status}");
+    }
+
     private void ThreadExecute()
     {
         _runstate = State.Running;
+        status = "Running";
 
         if (!firstPropagateDone)
         {
@@ -148,16 +152,16 @@ public class PathOverlap : MonoBehaviour {
 
         if (!workDone.HasValue)
         {
-            Debug.Log(_runstate == State.Stopped ? "Cancelled" : "Paused");
+            status = _runstate == State.Stopped ? "Cancelled" : "Paused";
         } else
         {
             // Algorithm has finished, we put in stopped state
             _runstate = State.Stopped;
 
             if (workDone.Value)
-                Debug.Log("Successful");
+                status = "Sucessful";
             else
-                Debug.Log("Failed");
+                status = "Failed";
         }
     }
 
