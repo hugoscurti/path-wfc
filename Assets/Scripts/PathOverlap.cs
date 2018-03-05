@@ -138,6 +138,7 @@ public class PathOverlap : MonoBehaviour {
         if (!firstPropagateDone)
         {
             model.PropagateFixedWaves(true);
+            model.PropagateMasks(true);
             firstPropagateDone = true;
         }
 

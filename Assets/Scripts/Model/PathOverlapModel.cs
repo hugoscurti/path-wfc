@@ -26,12 +26,18 @@ public class PathOverlapModel
     public static Color freespace = Color.white,
         obstacle = new Color(165f / 255, 42f / 255, 42f / 255),
         path = Color.black;
-    
+
     // Index associated with colors
-    int obstacle_idx = -1,
-        freespace_idx = -1;
+    public static int obstacle_idx = -1,
+        freespace_idx = -1,
+        path_idx = -1;
+
+    // Mask index represent a tile that can be fit by anything
+    int mask_idx = -1;
+
 
     Pattern[] patterns;
+    HashSet<int> maskPatterns;
 
     bool[,][] wave;
     double[] stationary;
@@ -76,6 +82,7 @@ public class PathOverlapModel
         C = colors.Count;
         obstacle_idx = colors.IndexOf(obstacle);
         freespace_idx = colors.IndexOf(freespace);
+        path_idx = colors.IndexOf(path);
     }
 
     /// <summary>
@@ -146,7 +153,6 @@ public class PathOverlapModel
     {
         long index = pattern.GetIndex(C);
 
-        //TODO: Extend with reflexions, rotations?
         if (counts.ContainsKey(index))
         {
             if (addCount)
@@ -173,11 +179,12 @@ public class PathOverlapModel
 
         if (fromOutput)
             // If pattern exists, we don't add the count to it
-            _ExtractPattern(periodicOut, outsize, output_idx, false, patternCounts, patternDict);
+            _ExtractPattern(periodicOut, outsize, output_idx, false, patternCounts, patternDict, (byte?)freespace_idx);
 
         // Set propagators and other things
         T = patternCounts.Count;
         patterns = new Pattern[T];
+        maskPatterns = new HashSet<int>();
         stationary = new double[T];
         propagator = new int[overlap_N, overlap_N][][];
 
@@ -186,22 +193,33 @@ public class PathOverlapModel
         {
             patterns[idx] = patternDict[key];
             stationary[idx] = patternCounts[key];
+
+            // Keep track of patterns with mask colors
+            if (patterns[idx].ContainsColor((byte)mask_idx))
+                maskPatterns.Add(idx);
+
             idx++;
         }
     }
 
-    private void _ExtractPattern(bool periodic, RectInt size, byte[,] indices, bool addCount, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
+
+    private void _ExtractPattern(bool periodic, RectInt size, byte[,] indices, bool addCount, Dictionary<long, int> counts, Dictionary<long, Pattern> dict, byte? maskColorIdx = null)
     {
         Pattern p;
         for (int y = 0; y < (periodic ? size.height : size.height - N + 1); ++y)
             for (int x = 0; x < (periodic ? size.width : size.width - N + 1); ++x)
             {
-                p = new Pattern(N, x, y, indices);
+                p = new Pattern(N, x, y, indices, maskColorIdx);
+
+                // Disregard patterns that only has maskcolor
+                if (maskColorIdx.HasValue && p.ContainsOnly((byte)mask_idx))
+                    continue;
 
                 AddPattern(p, counts, dict, addCount);
 
                 if (this.addTransforms)
                 {
+                    // Add rotations and reflexions
                     AddPattern(p.Reflect(), counts, dict, addCount);
                     Pattern p1 = p.Rotate();
                     AddPattern(p1, counts, dict, addCount);
@@ -238,7 +256,13 @@ public class PathOverlapModel
         this.insize = this.input.GetBounds();
         this.outsize = this.output.GetBounds();
 
-        colors = new List<Color>();
+        colors = new List<Color>() {
+            // Add mask index as first color
+            Color.clear
+        };
+        this.mask_idx = 0;  // TODO: Store it only at one place
+        Pattern.mask_idx = 0;
+
         byte[,] indices = IndexColours(input, insize);
         output_idx = IndexColours(output, outsize);
 
@@ -278,11 +302,18 @@ public class PathOverlapModel
     {
         byte patt_col, out_col;
 
+        // 2. Match the pattern with the output
         for (int dx = 0; dx < N; ++dx)
             for (int dy = 0; dy < N; ++dy)
             {
                 patt_col = p.Get(dx, dy);
                 out_col = output_idx[(x + dx) % outsize.width, (y + dy) % outsize.height];
+
+                if (out_col == mask_idx)
+                {
+                    if (patt_col == path_idx) return false;
+                    else continue;
+                }
 
                 // See if pattern matches the area represented by index i.
                 if ((patt_col == obstacle_idx) != (out_col == obstacle_idx))
@@ -355,6 +386,30 @@ public class PathOverlapModel
 
             if (w.Count(t => t) == 1)
                 Change(new Vector2Int(x, y));
+        });
+
+        if (propagate)
+            Propagate();
+    }
+
+
+    /// <summary>
+    /// Propagate the tiles that have masked color in them (since they are more constrained)
+    /// </summary>
+    /// <param name="propagate"></param>
+    public void PropagateMasks(bool propagate)
+    {
+        wave.ForEach((w, x, y) => {
+            if (OnBoundary(x, y)) return;
+
+            foreach (int i in maskPatterns)
+            {
+                if (w[i])
+                {
+                    Change(new Vector2Int(x, y));
+                    break;
+                }
+            }
         });
 
         if (propagate)
@@ -518,7 +573,7 @@ public class PathOverlapModel
         bool[] w;
 
         wave.ForEach((x, y) => {
-            float contributors = 0, r = 0, g = 0, b = 0;
+            float contributors = 0, r = 0, g = 0, b = 0, a = 0;
 
             for (int dy = 0; dy < N; ++dy)
                 for(int dx = 0; dx < N; ++dx)
@@ -537,10 +592,14 @@ public class PathOverlapModel
                         if (w[t])
                         {
                             contributors++;
-                            Color c = colors[patterns[t].Get(dx, dy)];
+                            byte idx = patterns[t].Get(dx, dy);
+                            Color c = Color.clear;
+                            if (idx != mask_idx)
+                                c = colors[patterns[t].Get(dx, dy)];
                             r += c.r;
                             g += c.g;
                             b += c.b;
+                            a += c.a;
                         }
                     }
                 }
@@ -548,7 +607,7 @@ public class PathOverlapModel
             if (contributors != 0)
             {
                 Vector3Int pos = new Vector3Int(x, y, 0);
-                Color newCol = new Color(r / contributors, g / contributors, b / contributors);
+                Color newCol = new Color(r / contributors, g / contributors, b / contributors, a / contributors);
 
                 // An attemp at changing only the relevant tile (i.e. change it only if the color is different)
                 if (output.GetColor(pos) != newCol)

@@ -8,16 +8,25 @@ public class Pattern
     private int N;
     private byte[] indices;
 
+    public static byte mask_idx = 0;
+
     #region Constructor
 
-    public Pattern(int N, int x, int y, byte[,] colorIndices)
+    public Pattern(int N, int x, int y, byte[,] colorIndices, byte? maskColor = null)
     {
         this.N = N;
 
         int width = colorIndices.GetLength(0),
             height = colorIndices.GetLength(1);
 
-        Func<int, int, byte> f = (dx, dy) => colorIndices[(x + dx) % width, (y + dy) % height];
+        Func<int, int, byte> f = (dx, dy) => {
+            var col_idx = colorIndices[(x + dx) % width, (y + dy) % height];
+
+            if (maskColor.HasValue && col_idx == maskColor.Value)
+                return mask_idx;
+            else
+                return col_idx;
+        };
         indices = ApplyPattern(f);
     }
 
@@ -118,6 +127,8 @@ public class Pattern
     /// Verify if overlapping patterns p1 and p2 over their difference in dx and dy
     /// aggrees in color for all overlapping pixels.
     /// dy and dx = 0 means patterns overlap completely.
+    /// 
+    /// TODO: Handle case with mask pattern
     /// </summary>
     public bool Agrees(Pattern p2, int dx, int dy)
     {
@@ -126,12 +137,21 @@ public class Pattern
             ymin = dy < 0 ? 0 : dy,
             ymax = dy < 0 ? dy + N : N;
 
+        byte c1, c2;
+
         for (int y = ymin; y < ymax; ++y)
         {
             for (int x = xmin; x < xmax; ++x)
             {
+                c1 = Get(x, y);
+                c2 = p2.Get(x - dx, y - dy);
+
+                // Mask color should fit with everything but a path
+                if (c1 == mask_idx && c2 == PathOverlapModel.path_idx) return false;
+                if (c2 == mask_idx && c1 == PathOverlapModel.path_idx) return false;
+
                 // As soon as one pair of colors disagree, return false
-                if (this.Get(x, y) != p2.Get(x - dx, y - dy))
+                if (c1 != mask_idx && c2 != mask_idx && c1 != c2)
                     return false;
             }
         }
@@ -147,14 +167,21 @@ public class Pattern
 
     public Texture2D Print(List<Color> colors)
     {
-        Texture2D res = new Texture2D(N, N, TextureFormat.RGBAFloat, false);
-        res.filterMode = FilterMode.Point;
-        res.alphaIsTransparency = true;
+        Texture2D res = new Texture2D(N, N, TextureFormat.RGBA32, false) {
+            filterMode = FilterMode.Point,
+            alphaIsTransparency = true
+        };
+
+        byte col;
 
         for (int x = 0; x < N; ++x)
             for(int y = 0; y < N; ++y)
             {
-                res.SetPixel(x, y, colors[Get(x, y)]);
+                col = Get(x, y);
+                if (col == mask_idx)
+                    res.SetPixel(x, y, Color.clear);
+                else
+                    res.SetPixel(x, y, colors[Get(x, y)]);
             }
 
         res.Apply();
