@@ -53,10 +53,7 @@ public class PathOverlapModel
     double[] logProb; //Log prob for each pattern
     double logT;
 
-    bool periodicIn = true,
-        periodicOut = true;
-
-    bool addTransforms;
+    PathOverlapAttributes attributes;
 
     #region Utility Functions
 
@@ -136,7 +133,7 @@ public class PathOverlapModel
 
     private bool OnBoundary(int x, int y)
     {
-        return !periodicOut &&
+        return !attributes.PeriodicOutput &&
             (x + N > outsize.width || y + N > outsize.height);
     }
 
@@ -175,11 +172,11 @@ public class PathOverlapModel
         // Manually insert the freespace pattern
         AddPattern(new Pattern(N, (byte)freespace_idx), patternCounts, patternDict, true);
 
-        _ExtractPattern(periodicIn, insize, indices, true, patternCounts, patternDict);
+        _ExtractPattern(attributes.PeriodicInput, insize, indices, true, patternCounts, patternDict);
 
         if (fromOutput)
             // If pattern exists, we don't add the count to it
-            _ExtractPattern(periodicOut, outsize, output_idx, false, patternCounts, patternDict, (byte?)freespace_idx);
+            _ExtractPattern(attributes.PeriodicOutput, outsize, output_idx, false, patternCounts, patternDict, (byte?)freespace_idx);
 
         // Set propagators and other things
         T = patternCounts.Count;
@@ -217,7 +214,7 @@ public class PathOverlapModel
 
                 AddPattern(p, counts, dict, addCount);
 
-                if (this.addTransforms)
+                if (attributes.AddRotationsAndReflexions)
                 {
                     // Add rotations and reflexions
                     AddPattern(p.Reflect(), counts, dict, addCount);
@@ -241,16 +238,13 @@ public class PathOverlapModel
 
     #region Contructor
 
-    public PathOverlapModel(Tilemap input, Tilemap output, int N, bool periodicInput, bool periodicOutput, bool generatePatternsFromOutput, bool addTransforms)
+    public PathOverlapModel(Tilemap input, Tilemap output, int N, PathOverlapAttributes attributes)
     {
         this.N = N;
         this.overlap_N = 2 * N - 1;
         this.input = input;
         this.output = output;
-        this.periodicIn = periodicInput;
-        this.periodicOut = periodicOutput;
-
-        this.addTransforms = addTransforms;
+        this.attributes = attributes;
 
         // We use outsize to get the size of the bitmap image to prevent issues when accessing bitmap images across multiple threads
         this.insize = this.input.GetBounds();
@@ -272,7 +266,7 @@ public class PathOverlapModel
         changes = new bool[outsize.width, outsize.height];
         indexstack = new Stack<Vector2Int>();
 
-        ExtractPattern(indices, generatePatternsFromOutput);
+        ExtractPattern(indices, this.attributes.GenerateMasksFromOutput);
 
         // Initialize wave array
         wave.ForEach((x, y) => wave[x, y] = new bool[T]);
@@ -626,7 +620,9 @@ public class PathOverlapModel
                         {
                             contributors++;
                             byte idx = patterns[t].Get(dx, dy);
-                            Color c = Color.clear;
+
+                            Color c = attributes.ShowMaskWithAlphaValue 
+                                ? Color.clear : Color.white;
                             if (idx != mask_idx)
                                 c = colors[patterns[t].Get(dx, dy)];
                             r += c.r;

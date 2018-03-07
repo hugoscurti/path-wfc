@@ -15,7 +15,6 @@ public class PathOverlap : MonoBehaviour {
         Paused
     }
 
-
     // Internal variables
     Thread _thread;
 
@@ -27,10 +26,10 @@ public class PathOverlap : MonoBehaviour {
 
     [Range(0.1f, 4f)]
     public float secondsBetweenUpdates = 0.5f;
+
     IEnumerator progress;
     float lastUpdate = 0f;
 
-    // TODO: If we want to fix tiles, we should instantiate Model when we display the map instead of instantiating it before pressing play
     private PathOverlapModel model;
 
     int N = 3;
@@ -58,17 +57,17 @@ public class PathOverlap : MonoBehaviour {
         _runstate = State.Stopped;
         status = "Stopped";
         _thread.Abort();
-        GetComponent<MapLoader>().ResetOutput();
+        GetComponent<MapController>().ResetOutput();
         model.Init((int)Time.realtimeSinceStartup);
     }
 
     // Call this when the maps are loaded
-    public void InstantiateModel()
+    public void InstantiateModel(Tilemap inputTarget, Tilemap outputTarget, PathOverlapAttributes attributes)
     {
         // Prepare variables for thread
-        MapLoader mapLoader = GetComponent<MapLoader>();
+        MapController mapLoader = GetComponent<MapController>();
 
-        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, this.N, mapLoader.periodicInput, mapLoader.periodicOutput, mapLoader.generatePatternsFromOutput, mapLoader.addTransforms);
+        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, N, attributes);
         model.Init((int)Time.realtimeSinceStartup);
         model.Print(); // Initial print
     }
@@ -124,7 +123,7 @@ public class PathOverlap : MonoBehaviour {
 
     private void OnDrawGizmos()
     {
-        var output = GetComponent<MapLoader>().outputTarget;
+        var output = GetComponent<MapController>().outputTarget;
         
         // Show status of algorithm
         Handles.Label(output.transform.position, $"Status : {status}");

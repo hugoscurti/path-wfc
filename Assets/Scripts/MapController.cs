@@ -21,14 +21,7 @@ public class MapController : MonoBehaviour {
     public Tilemap inputTarget;
     public Tilemap outputTarget;
 
-    // Model parameters
-    public bool periodicInput;
-    public bool periodicOutput;
-
-    // TODO: experiment with mask patterns
-    //public bool useOutputMaskPatterns;
-    public bool generatePatternsFromOutput;
-    public bool addTransforms;
+    public PathOverlapAttributes ModelAttributes;
 
     private Texture2D output;
 
@@ -66,7 +59,7 @@ public class MapController : MonoBehaviour {
     public void InitModel()
     {
         var modelComponent = GetComponent<PathOverlap>();
-        modelComponent.InstantiateModel();
+        modelComponent.InstantiateModel(inputTarget, outputTarget, ModelAttributes);
     }
 
     private void PaintTexture(Texture2D source, Tilemap target)
