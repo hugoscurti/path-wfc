@@ -334,8 +334,41 @@ public class PathOverlapModel
             for (int t = 0; t < T; ++t)
                 w[t] = PatternFits(x, y, patterns[t]);
 
+            // Filter out patterns that are enclosed in a masked pattern
+            foreach (int t in maskPatterns)
+            {
+                if (w[t])
+                    FilterPatternsThatFitMask(t, w);
+            }
+
             changes[x, y] = false;
         });
+    }
+
+    private void FilterPatternsThatFitMask(int mask_pattern, bool[] w)
+    {
+        Pattern mp = patterns[mask_pattern];
+        Pattern p;
+        bool fits;
+        for ( int t = 0; t < T; ++t)
+        {
+            if (!w[t]) continue;    // Already false, doesn't need to try to filter it up
+            if (t == mask_pattern) continue;
+
+            p = patterns[t];
+            fits = true;
+            for ( int x = 0; x < N; ++x)
+                for (int y = 0; y < N; ++y)
+                {
+                    if (mp.Get(x, y) == mask_pattern && p.Get(x, y) == path_idx)
+                    {
+                        fits = false;
+                        break;
+                    }
+                }
+            if (fits)
+                w[t] = false;
+        }
     }
 
     /// <summary>
