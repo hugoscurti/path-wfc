@@ -5,8 +5,8 @@ using UnityEditor;
 using System.IO;
 using System.Linq;
 
-[CustomEditor(typeof(MapLoader))]
-public class MapLoaderEditor : Editor {
+[CustomEditor(typeof(MapController))]
+public class MapControllerEditor : Editor {
 
     SerializedProperty selectedInput,
         selectedOutput;
@@ -45,7 +45,7 @@ public class MapLoaderEditor : Editor {
 
         if (GUILayout.Button("Load Maps"))
         {
-            var src = target as MapLoader;
+            var src = target as MapController;
             var map = inputmaps[selectedInput.intValue];
             src.LoadMap(map, true);
 
@@ -58,7 +58,7 @@ public class MapLoaderEditor : Editor {
 
         if (GUILayout.Button("Clear"))
         {
-            (target as MapLoader).ClearMaps();
+            (target as MapController).ClearMaps();
         }
 
         // Apply changes to the serialized properties
@@ -67,7 +67,7 @@ public class MapLoaderEditor : Editor {
 
     private string GetBaseMapDataDirectory(bool input)
     {
-        return Path.Combine(Application.dataPath, "Resources/MapData", input ? MapLoader.INPUT : MapLoader.OUTPUT);
+        return Path.Combine(Application.dataPath, "Resources/MapData", input ? MapController.INPUT : MapController.OUTPUT);
     }
 
     /// <summary>

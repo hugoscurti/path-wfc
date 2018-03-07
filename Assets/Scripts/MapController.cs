@@ -7,7 +7,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
-public class MapLoader : MonoBehaviour {
+public class MapController : MonoBehaviour {
 
     public const string INPUT = "input";
     public const string OUTPUT = "output";
