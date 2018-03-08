@@ -17,18 +17,13 @@ public class MapControllerEditor : Editor {
     private string[] inputFilenames,
         outputFilenames;
 
-    private string GetNameWithoutExtension(FileInfo fi)
-    {
-        return fi.Name.Remove(fi.Name.IndexOf(fi.Extension), fi.Extension.Length);
-    }
-
     public void OnEnable()
     {
-        inputmaps = GetData(true);
-        outputmaps = GetData(false);
+        inputmaps = FileUtils.GetData(GetBaseMapDataDirectory(MapController.INPUT));
+        outputmaps = FileUtils.GetData(GetBaseMapDataDirectory(MapController.OUTPUT));
 
-        inputFilenames = inputmaps.Select(GetNameWithoutExtension).ToArray();
-        outputFilenames = outputmaps.Select(GetNameWithoutExtension).ToArray();
+        inputFilenames = inputmaps.Select(FileUtils.GetNameWithoutExtension).ToArray();
+        outputFilenames = outputmaps.Select(FileUtils.GetNameWithoutExtension).ToArray();
 
         selectedInput = serializedObject.FindProperty("SelectedInputMap");
         selectedOutput = serializedObject.FindProperty("SelectedOutputMap");
@@ -65,22 +60,8 @@ public class MapControllerEditor : Editor {
         serializedObject.ApplyModifiedProperties();
     }
 
-    private string GetBaseMapDataDirectory(bool input)
+    private string GetBaseMapDataDirectory(string lastFolder)
     {
-        return Path.Combine(Application.dataPath, "Resources/MapData", input ? MapController.INPUT : MapController.OUTPUT);
+        return Path.Combine(Application.dataPath, "Resources/MapData", lastFolder);
     }
-
-    /// <summary>
-    /// Get data from one of the input/output folders
-    /// </summary>
-    public List<FileInfo> GetData(bool input)
-    {
-        var folder = GetBaseMapDataDirectory(input);
-        DirectoryInfo folderinfo = new DirectoryInfo(folder);
-
-        var fileinfos = folderinfo.GetFiles("*.png").Union(folderinfo.GetFiles("*.map"));
-
-        return fileinfos.ToList();
-    }
-
 }
