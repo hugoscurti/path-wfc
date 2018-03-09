@@ -20,8 +20,6 @@ public class MapController : MonoBehaviour {
     [MapIterator("Resources/" + OUTPUT_FOLDER)]
     public MapSelector outputSelector = new MapSelector();
 
-    public PathOverlapAttributes ModelAttributes;
-
     private Texture2D output;
 
     public void LoadMaps()
@@ -37,12 +35,6 @@ public class MapController : MonoBehaviour {
     {
         target.ClearAllTiles();
         TileUtils.PaintTexture(source, target);
-    }
-
-    public void InitModel()
-    {
-        var modelComponent = GetComponent<PathOverlap>();
-        modelComponent.InstantiateModel(inputTarget, outputTarget, ModelAttributes);
     }
 
     public void ClearMaps()

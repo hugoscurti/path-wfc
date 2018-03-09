@@ -14,6 +14,12 @@ public class PathOverlapEditor : Editor
 
         base.OnInspectorGUI();
 
+        if (GUILayout.Button("Instantiate"))
+        {
+            src.InstantiateModel();
+        }
+
+
         // Change button based on running state
         if (src.RunState == PathOverlap.State.Running)
         {

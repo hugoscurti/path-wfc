@@ -29,9 +29,6 @@ public class MapControllerEditor : Editor {
         {
             var src = target as MapController;
             src.LoadMaps();
-
-            // Finally, init the model
-            src.InitModel();
         }
 
         if (GUILayout.Button("Clear"))

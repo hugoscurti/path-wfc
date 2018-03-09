@@ -24,6 +24,10 @@ public class PathOverlap : MonoBehaviour {
     bool? workDone;
     bool firstPropagateDone;
 
+    // Inspector variables
+
+    public PathOverlapAttributes ModelAttributes;
+
     [Range(0.1f, 4f)]
     public float secondsBetweenUpdates = 0.5f;
 
@@ -43,7 +47,7 @@ public class PathOverlap : MonoBehaviour {
     {
         _runstate = State.Stopped;
         status = "Stopped";
-        _thread.Abort();
+        if (_thread != null) _thread.Abort();
         model.Init((int)Time.realtimeSinceStartup);
     }
 
@@ -56,18 +60,19 @@ public class PathOverlap : MonoBehaviour {
     {
         _runstate = State.Stopped;
         status = "Stopped";
-        _thread.Abort();
+        if (_thread != null) _thread.Abort();
         GetComponent<MapController>().ResetOutput();
         model.Init((int)Time.realtimeSinceStartup);
+        model.Print();
     }
 
     // Call this when the maps are loaded
-    public void InstantiateModel(Tilemap inputTarget, Tilemap outputTarget, PathOverlapAttributes attributes)
+    public void InstantiateModel()
     {
         // Prepare variables for thread
         MapController mapLoader = GetComponent<MapController>();
 
-        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, N, attributes);
+        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, N, ModelAttributes);
         model.Init((int)Time.realtimeSinceStartup);
         model.Print(); // Initial print
     }
