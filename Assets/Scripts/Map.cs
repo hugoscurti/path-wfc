@@ -47,7 +47,38 @@ public class Map
             }
         return res;
     }
+    
 
+    /// <summary>
+    /// Loads a .png or .map file and returns a Texture2d representation
+    /// </summary>
+    public static Texture2D LoadMap(FileInfo file, string ResourceDirectory)
+    {
+        // Handle png and map types
+        if (file.Extension == ".png")
+        {
+            string resourcePath = Path.Combine(ResourceDirectory,
+                file.Name.Remove(file.Name.LastIndexOf(file.Extension), file.Extension.Length));
+
+            return Resources.Load<Texture2D>(resourcePath);
+        }
+        else if (file.Extension == ".map")
+        {
+            Map map = Map.ReadMap(file);
+            return map.ToTexture();
+        }
+        else
+        {
+            throw new NotSupportedException("File type not supported");
+        }
+    }
+
+
+    /// <summary>
+    /// Reads a .map file and returns a Map object
+    /// </summary>
+    /// <param name="file"></param>
+    /// <returns></returns>
     public static Map ReadMap(FileInfo file)
     {
         Map map = new Map();
@@ -76,6 +107,7 @@ public class Map
             return map;
         }
     }
+    
 
     /// <summary>
     /// Read a line and expect the line to be the value passed in arguments

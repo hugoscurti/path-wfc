@@ -9,72 +9,40 @@ using UnityEngine.Tilemaps;
 
 public class MapController : MonoBehaviour {
 
-    public const string INPUT = "input";
-    public const string OUTPUT = "output";
-
-    // Field that will be used by the MapLoaderEditor
-    [SerializeField, HideInInspector]
-    private int SelectedInputMap = 0;
-    [SerializeField, HideInInspector]
-    private int SelectedOutputMap = 0;
+    public const string INPUT_FOLDER = "MapData/input";
+    public const string OUTPUT_FOLDER = "MapData/output";
 
     public Tilemap inputTarget;
+    [MapIterator("Resources/" + INPUT_FOLDER)]
+    public MapSelector inputSelector = new MapSelector();
+
     public Tilemap outputTarget;
+    [MapIterator("Resources/" + OUTPUT_FOLDER)]
+    public MapSelector outputSelector = new MapSelector();
 
     public PathOverlapAttributes ModelAttributes;
 
     private Texture2D output;
 
-    public void LoadMap(FileInfo file, bool input)
+    public void LoadMaps()
     {
-        Tilemap target = input ? inputTarget : outputTarget;
-        Texture2D source;
+        Texture2D input_src = Map.LoadMap(inputSelector.GetFile(), INPUT_FOLDER);
+        LoadMap(inputTarget, input_src);
 
+        this.output = Map.LoadMap(outputSelector.GetFile(), OUTPUT_FOLDER);
+        LoadMap(outputTarget, this.output);
+    }
+
+    public void LoadMap(Tilemap target, Texture2D source)
+    {
         target.ClearAllTiles();
-
-        // Handle png and map types
-        if (file.Extension == ".png")
-        {
-            string resourcePath = Path.Combine(GetResourceMapDataDirectory(input), 
-                file.Name.Remove(file.Name.LastIndexOf(file.Extension), file.Extension.Length));
-
-            source = Resources.Load<Texture2D>(resourcePath);
-
-        } else if (file.Extension == ".map")
-        {
-            Map map = Map.ReadMap(file);
-            source = map.ToTexture();
-        }
-        else
-        {
-            throw new NotSupportedException("File type not supported");
-        }
-
-        if (!input)
-            this.output = source;
-
-        PaintTexture(source, target);
+        TileUtils.PaintTexture(source, target);
     }
 
     public void InitModel()
     {
         var modelComponent = GetComponent<PathOverlap>();
         modelComponent.InstantiateModel(inputTarget, outputTarget, ModelAttributes);
-    }
-
-    private void PaintTexture(Texture2D source, Tilemap target)
-    {
-        Tile tile, 
-            blank = Resources.Load<Tile>("Tiles/White");
-
-        for (int x = 0; x < source.width; ++x)
-            for (int y = 0; y < source.height; ++y)
-            {
-                tile = Instantiate(blank);
-                tile.color = source.GetPixel(x, y);
-
-                target.SetTile(new Vector3Int(x, y, 0), tile);
-            }
     }
 
     public void ClearMaps()
@@ -87,12 +55,6 @@ public class MapController : MonoBehaviour {
     public void ResetOutput()
     {
         outputTarget.ClearAllTiles();
-        PaintTexture(output, outputTarget);
+        TileUtils.PaintTexture(output, outputTarget);
     }
-
-    private string GetResourceMapDataDirectory(bool input)
-    {
-        var fold = input ? INPUT : OUTPUT;
-        return $"MapData/{fold}";
-    }   
 }
