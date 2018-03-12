@@ -15,28 +15,30 @@ public class PathOverlap : MonoBehaviour {
         Paused
     }
 
+    float timeRun = -1;
+
     // Internal variables
     Thread _thread;
 
     State _runstate;
     public State RunState { get { return _runstate; } }
 
+    float lastUpdate = 0f;
     bool? workDone;
     bool firstPropagateDone;
+
+    IEnumerator progress;
+    private PathOverlapModel model;
+    int N = 3;
 
     // Inspector variables
 
     public PathOverlapAttributes ModelAttributes;
 
+    [Header("Execution")]
+    public bool showProgress = true;
     [Range(0.1f, 4f)]
     public float secondsBetweenUpdates = 0.5f;
-
-    IEnumerator progress;
-    float lastUpdate = 0f;
-
-    private PathOverlapModel model;
-
-    int N = 3;
 
     public PathOverlapModel GetModel()
     {
@@ -100,12 +102,21 @@ public class PathOverlap : MonoBehaviour {
             firstPropagateDone = false;
         }
 
-        _thread = new Thread(ThreadExecute);
-        _thread.Start();
+        if (showProgress)
+        {
+            // Show progress in a separate thread. 
+            // Use the EditorApplication.update event to poll for algorithm updates
+            _thread = new Thread(Execute);
+            _thread.Start();
 
-        progress = ShowProgress();
+            progress = ShowProgress();
 
-        EditorApplication.update += EditorUpdate;
+            EditorApplication.update += EditorUpdate;
+        } else
+        {
+            Execute();
+            model.Print();
+        }
     }
 
     void EditorUpdate()
@@ -138,9 +149,11 @@ public class PathOverlap : MonoBehaviour {
     private void OnDrawGizmos()
     {
         var output = GetComponent<MapController>().outputTarget;
+        var text = $"Status : {status};\nTime : {timeRun} sec.";
         
+
         // Show status of algorithm
-        Handles.Label(output.transform.position, $"Status : {status}");
+        Handles.Label(output.transform.position, text);
     }
 
     private void firstPropagate()
@@ -150,10 +163,13 @@ public class PathOverlap : MonoBehaviour {
         firstPropagateDone = true;
     }
 
-    private void ThreadExecute()
+    private void Execute()
     {
         _runstate = State.Running;
         status = "Running";
+
+        // Begin timing
+        long begin = System.DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
         if (!firstPropagateDone)
         {
@@ -166,8 +182,6 @@ public class PathOverlap : MonoBehaviour {
         while (_runstate == State.Running && workDone == null)
         {
             model.Propagate();
-
-            Thread.Sleep(10);
             workDone = model.Observe();
         }
 
@@ -184,6 +198,10 @@ public class PathOverlap : MonoBehaviour {
             else
                 status = "Failed";
         }
+
+        // End timing
+        long end = System.DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        timeRun = (end - begin) / 1000f;
     }
 
     private void OnDisable()
