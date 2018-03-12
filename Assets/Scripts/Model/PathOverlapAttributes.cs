@@ -10,5 +10,5 @@ public class PathOverlapAttributes
     public bool GenerateMasksFromOutput;
     public bool AddRotationsAndReflexions;
 
-    public bool ShowMaskWithAlphaValue;
+    public bool UseRandomWeights;
 }

@@ -457,8 +457,8 @@ public class PathOverlapModel
         bool[] w;
 
 
-        for (int x = 0; x <wave.GetLength(0); ++x)
-            for (int y = 0; y <wave.GetLength(1); ++y)
+        for (int x = 0; x < wave.GetLength(0); ++x)
+            for (int y = 0; y < wave.GetLength(1); ++y)
             {
                 if (OnBoundary(x, y)) continue;
 
@@ -481,7 +481,7 @@ public class PathOverlapModel
                 // Calculate entropy
                 double noise = 1e-6 * random.NextDouble();
                 double entropy = CalculateEntropy(w, amount, sum);
-                
+
                 if (amount > 1 && amount + noise < minCount)
                 {
                     minCount = amount + noise;
@@ -506,10 +506,16 @@ public class PathOverlapModel
         double[] distribution = new double[T];
         bool[] w1 = wave[indexminEnt.x, indexminEnt.y];
 
+        // Fill in weights
         for (int t = 0; t < T; t++)
-            distribution[t] = w1[t] ? stationary[t] : 0;
+        {
+            if (w1[t])
+                distribution[t] = attributes.UseRandomWeights ? 1 : stationary[t];
+            else
+                distribution[t] = 0;
+        }
 
-        // Choose one pattern 
+        // Choose one pattern indexed at r
         int r = distribution.Random(random.NextDouble());
 
         for (int t = 0; t < T; t++)
@@ -621,8 +627,7 @@ public class PathOverlapModel
                             contributors++;
                             byte idx = patterns[t].Get(dx, dy);
 
-                            Color c = attributes.ShowMaskWithAlphaValue 
-                                ? Color.clear : Color.white;
+                            Color c = Color.clear;
                             if (idx != mask_idx)
                                 c = colors[patterns[t].Get(dx, dy)];
                             r += c.r;
