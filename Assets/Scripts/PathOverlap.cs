@@ -61,8 +61,9 @@ public class PathOverlap : MonoBehaviour {
         _runstate = State.Stopped;
         status = "Stopped";
         if (_thread != null) _thread.Abort();
-        GetComponent<MapController>().ResetOutput();
         model.Init((int)Time.realtimeSinceStartup);
+
+        GetComponent<MapController>().ResetOutput();
         model.Print();
     }
 
@@ -71,10 +72,18 @@ public class PathOverlap : MonoBehaviour {
     {
         // Prepare variables for thread
         MapController mapLoader = GetComponent<MapController>();
+        mapLoader.ResetOutput();
 
         model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, N, ModelAttributes);
         model.Init((int)Time.realtimeSinceStartup);
+
         model.Print(); // Initial print
+    }
+
+    public void FirstPropagate()
+    {
+        firstPropagate();
+        model.Print();
     }
 
     public void ExecuteAlgorithm(bool reset = true)
@@ -132,6 +141,13 @@ public class PathOverlap : MonoBehaviour {
         
         // Show status of algorithm
         Handles.Label(output.transform.position, $"Status : {status}");
+    }
+
+    private void firstPropagate()
+    {
+        model.PropagateFixedWaves(true);
+        model.PropagateMasks(true);
+        firstPropagateDone = true;
     }
 
     private void ThreadExecute()

@@ -14,11 +14,17 @@ public class PathOverlapEditor : Editor
 
         base.OnInspectorGUI();
 
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("Instantiate"))
         {
             src.InstantiateModel();
         }
 
+        if (GUILayout.Button("First Propagate"))
+        {
+            src.FirstPropagate();
+        }
+        GUILayout.EndHorizontal();
 
         // Change button based on running state
         if (src.RunState == PathOverlap.State.Running)
@@ -30,14 +36,14 @@ public class PathOverlapEditor : Editor
             if (GUILayout.Button("Play"))
                 src.ExecuteAlgorithm(src.RunState == PathOverlap.State.Stopped);
         }
-        
 
+        GUILayout.BeginHorizontal();
         if (GUILayout.Button("Stop"))
             src.Cancel();
 
         if (GUILayout.Button("Reset"))
             src.ResetOutput();
-
+        GUILayout.EndHorizontal();
     }
 
 }

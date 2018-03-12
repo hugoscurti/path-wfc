@@ -10,11 +10,14 @@ using UnityEngine.Tilemaps;
 public class MapLoader : MonoBehaviour
 {
     public Tilemap Target;
+    
+    private Texture2D map;
+    private const string ResourceDirectory = "MapData/Output";
 
-    [MapIterator("Resources/MapData/output")]
+    [MapIterator("Resources/" + ResourceDirectory)]
     public MapSelector outputmap = new MapSelector();
 
-    private string ResourceDirectory = "MapData/Output";
+    
 
     /// <summary>
     /// Load map to target
@@ -25,9 +28,9 @@ public class MapLoader : MonoBehaviour
 
         Target.ClearAllTiles();
 
-        Texture2D source = Map.LoadMap(file, ResourceDirectory);
+        map = Map.LoadMap(file, ResourceDirectory);
 
-        TileUtils.PaintTexture(source, Target);
+        TileUtils.PaintTexture(map, Target);
     }
 
     public void ClearMap()

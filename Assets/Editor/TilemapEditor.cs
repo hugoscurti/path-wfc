@@ -41,10 +41,10 @@ public class TilemapEditor : Editor
 
         if (cellPos.x >= 0 && cellPos.y >= 0)
         {
-            // TODO: Select Corresponding tile
+            // Select Corresponding tile
             //Debug.Log($"Cell {cellPos.x},{cellPos.y}");
 
-            // TODO: Open window to select pattern
+            // Open window to select pattern
             SelectPatternEditorWindow window = EditorWindow.GetWindow<SelectPatternEditorWindow>();
             window.Init(src, src.GetComponentInParent<PathOverlap>().GetModel(), new Vector2Int(cellPos.x, cellPos.y));
         }
