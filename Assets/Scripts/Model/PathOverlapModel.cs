@@ -189,7 +189,7 @@ public class PathOverlapModel
         foreach (long key in patternCounts.Keys)
         {
             patterns[idx] = patternDict[key];
-            stationary[idx] = patternCounts[key];
+            stationary[idx] = attributes.UseRandomWeights ? 1 : patternCounts[key];
 
             // Keep track of patterns with mask colors
             if (patterns[idx].ContainsColor((byte)mask_idx))
@@ -510,7 +510,7 @@ public class PathOverlapModel
         for (int t = 0; t < T; t++)
         {
             if (w1[t])
-                distribution[t] = attributes.UseRandomWeights ? 1 : stationary[t];
+                distribution[t] = stationary[t];
             else
                 distribution[t] = 0;
         }

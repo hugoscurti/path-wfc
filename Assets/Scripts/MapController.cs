@@ -39,14 +39,28 @@ public class MapController : MonoBehaviour {
 
     public void ClearMaps()
     {
-        inputTarget.ClearAllTiles();
-        outputTarget.ClearAllTiles();
+        //Manually destroy tiles
+        DestroyTiles(inputTarget);
+        DestroyTiles(outputTarget);
+
+    }
+
+    public void DestroyTiles(Tilemap target)
+    {
+        TileBase[] tiles = target.GetTilesBlock(target.cellBounds);
+        target.ClearAllTiles();
+
+        for(int i = 0; i < tiles.Length; ++i)
+        {
+            DestroyImmediate(tiles[i]); // when in editor, we call destroyimmediate
+            tiles[i] = null;
+        }
     }
     
 
     public void ResetOutput()
     {
-        outputTarget.ClearAllTiles();
+        DestroyTiles(outputTarget);
         TileUtils.PaintTexture(output, outputTarget);
     }
 }
