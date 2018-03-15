@@ -35,10 +35,8 @@ public class PathOverlap : MonoBehaviour {
 
     public PathOverlapAttributes ModelAttributes;
 
-    [Header("Execution")]
-    public bool showProgress = true;
-    [Range(0.1f, 4f)]
-    public float secondsBetweenUpdates = 0.5f;
+    public ExecutionAttributes execution;
+
 
     public PathOverlapModel GetModel()
     {
@@ -50,7 +48,8 @@ public class PathOverlap : MonoBehaviour {
         _runstate = State.Stopped;
         status = "Stopped";
         if (_thread != null) _thread.Abort();
-        model.Init((int)Time.realtimeSinceStartup);
+
+        InitModel(false);
     }
 
     public void Pause()
@@ -63,10 +62,8 @@ public class PathOverlap : MonoBehaviour {
         _runstate = State.Stopped;
         status = "Stopped";
         if (_thread != null) _thread.Abort();
-        model.Init((int)Time.realtimeSinceStartup);
 
-        GetComponent<MapController>().ResetOutput();
-        model.Print();
+        InitModel(true);
     }
 
     // Call this when the maps are loaded
@@ -77,15 +74,29 @@ public class PathOverlap : MonoBehaviour {
         mapLoader.ResetOutput();
 
         model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, N, ModelAttributes);
-        model.Init((int)Time.realtimeSinceStartup);
 
-        model.Print(); // Initial print
+        InitModel(true);
+    }
+
+    private void firstPropagate()
+    {
+        model.PropagateFixedWaves(true);
+        model.PropagateMasks(true);
+        firstPropagateDone = true;
     }
 
     public void FirstPropagate()
     {
         firstPropagate();
         model.Print();
+    }
+
+    private void InitModel(bool print)
+    {
+        model.Init(execution.UseFixedSeed ? execution.Seed : (int)Time.realtimeSinceStartup);
+
+        if (print)
+            model.Print();
     }
 
     public void ExecuteAlgorithm(bool reset = true)
@@ -102,7 +113,7 @@ public class PathOverlap : MonoBehaviour {
             firstPropagateDone = false;
         }
 
-        if (showProgress)
+        if (execution.ShowProgress)
         {
             // Show progress in a separate thread. 
             // Use the EditorApplication.update event to poll for algorithm updates
@@ -121,7 +132,7 @@ public class PathOverlap : MonoBehaviour {
 
     void EditorUpdate()
     {
-        if (Time.realtimeSinceStartup - lastUpdate > secondsBetweenUpdates)
+        if (Time.realtimeSinceStartup - lastUpdate > execution.SecondsBetweenUpdate)
         {
             var hasNext = progress.MoveNext();
             lastUpdate = Time.realtimeSinceStartup;
@@ -154,13 +165,6 @@ public class PathOverlap : MonoBehaviour {
 
         // Show status of algorithm
         Handles.Label(output.transform.position, text);
-    }
-
-    private void firstPropagate()
-    {
-        model.PropagateFixedWaves(true);
-        model.PropagateMasks(true);
-        firstPropagateDone = true;
     }
 
     private void Execute()

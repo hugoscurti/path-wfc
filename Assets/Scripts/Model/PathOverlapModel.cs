@@ -599,10 +599,37 @@ public class PathOverlapModel
             }
     }
 
+
+    /// <summary>
+    /// Return the list of color indices.
+    /// </summary>
+    /// <returns></returns>
+    //private int[,] GetResult()
+    //{
+
+    //}
+
+    /// <summary>
+    /// Remove paths that are not going around an obstacle.
+    /// </summary>
+    public void PostProcessPaths()
+    {
+        //int[,] res = GetResult();
+        // 1. Find path or blue tile
+
+        // 2. Iterate over the blue portion
+
+        // 3. If found obstacle, return
+
+        // 4. Else, set all to blank
+    }
+
+    /// <summary>
+    /// Print in the array of tiles 
+    /// </summary>
+    /// <param name="tiles"></param>
     public void Print()
     {
-        Tile blanktile = Resources.Load<Tile>("Tiles/White");
-
         bool[] w;
 
         wave.ForEach((x, y) => {
@@ -643,12 +670,10 @@ public class PathOverlapModel
                 Vector3Int pos = new Vector3Int(x, y, 0);
                 Color newCol = new Color(r / contributors, g / contributors, b / contributors, a / contributors);
 
-                // An attemp at changing only the relevant tile (i.e. change it only if the color is different)
+                // An attemp at changing only the relevant tiles (i.e. change it only if the color is different)
                 if (output.GetColor(pos) != newCol)
                 {
-                    Tile t = GameObject.Instantiate(blanktile);
-                    t.color = newCol;
-                    output.SetTile(pos, t);
+                    output.SetColor(pos, newCol);
                 }
             }
         });
