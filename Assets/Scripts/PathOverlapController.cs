@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
-public class PathOverlap : MonoBehaviour {
+public class PathOverlapController : MonoBehaviour {
 
     string status = "Stopped";
     public enum State
@@ -27,7 +27,6 @@ public class PathOverlap : MonoBehaviour {
     bool? workDone;
     bool firstPropagateDone;
 
-    IEnumerator progress;
     private PathOverlapModel model;
     int N = 3;
 
@@ -113,48 +112,41 @@ public class PathOverlap : MonoBehaviour {
             firstPropagateDone = false;
         }
 
-        if (execution.ShowProgress)
-        {
-            // Show progress in a separate thread. 
-            // Use the EditorApplication.update event to poll for algorithm updates
-            _thread = new Thread(Execute);
-            _thread.Start();
+        // Execute in a separate thread.
+        _thread = new Thread(Execute);
 
-            progress = ShowProgress();
+        _thread.Start();
 
-            EditorApplication.update += EditorUpdate;
-        } else
-        {
-            Execute();
-            model.Print();
-        }
+        // Use the EditorApplication.update event to poll for updates
+        EditorApplication.update += EditorUpdate;
     }
 
     void EditorUpdate()
     {
-        if (Time.realtimeSinceStartup - lastUpdate > execution.SecondsBetweenUpdate)
+        if (execution.ShowProgress)
         {
-            var hasNext = progress.MoveNext();
-            lastUpdate = Time.realtimeSinceStartup;
-            if (!hasNext)
+            if (Time.realtimeSinceStartup - lastUpdate > execution.SecondsBetweenUpdate)
+            {
+                model.Print();
+
+                lastUpdate = Time.realtimeSinceStartup;
+
+                if (_runstate != State.Running)
+                    // Unregister event
+                    EditorApplication.update -= EditorUpdate;
+            }
+        } else
+        {
+            if (_runstate != State.Running)
+            {
+                // Wait for thread to finish?
+                _thread.Join();
+                model.Print();
+
                 // Unregister event
                 EditorApplication.update -= EditorUpdate;
+            }
         }
-    }
-
-    private IEnumerator ShowProgress()
-    {
-        do
-        {
-            model.Print();
-            yield return null;
-
-        } while (_runstate == State.Running);
-
-        // Final print after algorithm is done
-        model.Print();
-
-        yield return null;
     }
 
     private void OnDrawGizmos()

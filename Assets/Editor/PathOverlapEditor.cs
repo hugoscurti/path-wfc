@@ -4,13 +4,13 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-[CustomEditor(typeof(PathOverlap))]
+[CustomEditor(typeof(PathOverlapController))]
 public class PathOverlapEditor : Editor
 {
 
     public override void OnInspectorGUI()
     {
-        var src = target as PathOverlap;
+        var src = target as PathOverlapController;
 
         base.OnInspectorGUI();
 
@@ -27,14 +27,14 @@ public class PathOverlapEditor : Editor
         GUILayout.EndHorizontal();
 
         // Change button based on running state
-        if (src.RunState == PathOverlap.State.Running)
+        if (src.RunState == PathOverlapController.State.Running)
         {
             if (GUILayout.Button("Pause"))
                 src.Pause();
         } else
         {
             if (GUILayout.Button("Play"))
-                src.ExecuteAlgorithm(src.RunState == PathOverlap.State.Stopped);
+                src.ExecuteAlgorithm(src.RunState == PathOverlapController.State.Stopped);
         }
 
         GUILayout.BeginHorizontal();

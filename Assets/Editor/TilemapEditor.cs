@@ -46,7 +46,7 @@ public class TilemapEditor : Editor
 
             // Open window to select pattern
             SelectPatternEditorWindow window = EditorWindow.GetWindow<SelectPatternEditorWindow>();
-            window.Init(src, src.GetComponentInParent<PathOverlap>().GetModel(), new Vector2Int(cellPos.x, cellPos.y));
+            window.Init(src, src.GetComponentInParent<PathOverlapController>().GetModel(), new Vector2Int(cellPos.x, cellPos.y));
         }
 
         
