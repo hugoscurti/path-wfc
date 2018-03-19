@@ -7,6 +7,7 @@ using UnityEngine.Tilemaps;
 
 public class PathOverlapController : MonoBehaviour {
 
+    int seed;
     string status = "Stopped";
     public enum State
     {
@@ -92,7 +93,8 @@ public class PathOverlapController : MonoBehaviour {
 
     private void InitModel(bool print)
     {
-        model.Init(execution.UseFixedSeed ? execution.Seed : (int)Time.realtimeSinceStartup);
+        seed = execution.UseFixedSeed ? execution.Seed : (int)Time.realtimeSinceStartup;
+        model.Init(seed);
 
         if (print)
             model.Print();
@@ -152,7 +154,7 @@ public class PathOverlapController : MonoBehaviour {
     private void OnDrawGizmos()
     {
         var output = GetComponent<MapController>().outputTarget;
-        var text = $"Status : {status};\nTime : {timeRun} sec.";
+        var text = $"Seed: {seed};\nStatus : {status};\nTime : {timeRun} sec.";
         
 
         // Show status of algorithm
