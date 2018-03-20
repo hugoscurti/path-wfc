@@ -12,15 +12,15 @@ public class Pattern
 
     #region Constructor
 
-    public Pattern(int N, int x, int y, byte[,] colorIndices, byte? maskColor = null)
+    public Pattern(int N, int x, int y, byte[] colorIndices, RectInt size, byte? maskColor = null)
     {
         this.N = N;
 
-        int width = colorIndices.GetLength(0),
-            height = colorIndices.GetLength(1);
-
         Func<int, int, byte> f = (dx, dy) => {
-            var col_idx = colorIndices[(x + dx) % width, (y + dy) % height];
+            int sx = (x + dx) % size.width,
+                sy = (y + dy) % size.height;
+
+            var col_idx = colorIndices[sy * size.width + sx];
 
             if (maskColor.HasValue && col_idx == maskColor.Value)
                 return mask_idx;
