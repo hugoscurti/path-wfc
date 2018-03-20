@@ -46,7 +46,7 @@ public class PathOverlapModel
     int[,][][] propagator;
 
     bool[] changes;
-    Stack<int> indexstack;
+    FixedStack<int> indexstack;
 
     System.Random random;
 
@@ -110,11 +110,6 @@ public class PathOverlapModel
             }
 
         return indices;
-    }
-
-    private void Change(Vector2Int pos)
-    {
-        Change(pos.y * outsize.width + pos.x);
     }
 
     /// <summary>
@@ -268,9 +263,11 @@ public class PathOverlapModel
 
         FillSpecialColorIndices();
 
-        wave = new bool[outsize.width * outsize.height][];
-        changes = new bool[outsize.width * outsize.height];
-        indexstack = new Stack<int>();
+        int tilecounts = outsize.width * outsize.height;
+
+        wave = new bool[tilecounts][];
+        changes = new bool[tilecounts];
+        indexstack = new FixedStack<int>(tilecounts);
 
         ExtractPattern(indices, this.attributes.GenerateMasksFromOutput);
 
@@ -552,7 +549,7 @@ public class PathOverlapModel
 
     public void Propagate()
     {
-        while (indexstack.Count > 0)
+        while (!indexstack.IsEmpty())
         {
             int i = indexstack.Pop();
             changes[i] = false;
@@ -567,7 +564,7 @@ public class PathOverlapModel
     /// <returns> False if nothing happened, true if we executed something</returns>
     public bool PropagateOne()
     {
-        if (indexstack.Count == 0)
+        if (indexstack.IsEmpty())
             return false;
 
         int i = indexstack.Pop();
