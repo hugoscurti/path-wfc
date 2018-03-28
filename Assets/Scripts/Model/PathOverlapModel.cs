@@ -320,7 +320,55 @@ public class PathOverlapModel
                 if ((patt_col == obstacle_idx) != (out_col == obstacle_idx))
                     return false;
             }
+
+        // Check for borders
+        if (attributes.forbidBufferSpaceOnBoundaries && IsBoundaryBuffer(x, y, p)) return false;
+
         return true;
+    }
+
+    public bool IsBoundaryBuffer(int x, int y, Pattern p)
+    {
+        int patt_col;
+        // Determine if all tiles are rubber spaces (i.e. not path not obstacle not freespace)
+        if (x == 0)
+        {
+            for (int dy = 0; dy < N; ++dy)
+            {
+                patt_col = p.Get(0, dy);
+                if (patt_col != path_idx && patt_col != freespace_idx && patt_col != obstacle_idx)
+                    return true;
+            }
+
+        } else if (x + N == outsize.width)
+        {
+            for (int dy = 0; dy < N; ++dy)
+            {
+                patt_col = p.Get(N - 1, dy);
+                if (patt_col != path_idx && patt_col != freespace_idx && patt_col != obstacle_idx)
+                    return true;
+            }
+        }
+
+        if (y == 0)
+        {
+            for (int dx = 0; dx < N; ++dx)
+            {
+                patt_col = p.Get(dx, 0);
+                if (patt_col != path_idx && patt_col != freespace_idx && patt_col != obstacle_idx)
+                    return true;
+            }
+        } else if (y + N == outsize.height)
+        {
+            for (int dx = 0; dx < N; ++dx)
+            {
+                patt_col = p.Get(dx, N - 1);
+                if (patt_col != path_idx && patt_col != freespace_idx && patt_col != obstacle_idx)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
