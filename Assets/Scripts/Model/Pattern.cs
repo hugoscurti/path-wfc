@@ -8,11 +8,15 @@ public class Pattern
     private int N;
     private byte[] indices;
 
-    public static byte mask_idx = 0;
+    public static byte mask_idx_l1 = 0;
+    public static byte mask_idx_l2 = 0;
+
+    public static Mask layer1;
+    public static Mask layer2;
 
     #region Constructor
 
-    public Pattern(int N, int x, int y, byte[] colorIndices, RectInt size, byte? maskColor = null)
+    public Pattern(int N, int x, int y, byte[] colorIndices, RectInt size)
     {
         this.N = N;
 
@@ -22,12 +26,40 @@ public class Pattern
 
             var col_idx = colorIndices[sy * size.width + sx];
 
-            if (maskColor.HasValue && col_idx == maskColor.Value)
-                return mask_idx;
-            else
-                return col_idx;
+            return col_idx;
         };
         indices = ApplyPattern(f);
+    }
+
+    public Pattern(int N, int x, int y, byte[] colorIndices, RectInt size, byte maskColor)
+    {
+        this.N = N;
+
+        Func<int, int, byte> f = (dx, dy) => {
+            int sx = (x + dx) % size.width,
+                sy = (y + dy) % size.height;
+
+            var col_idx = colorIndices[sy * size.width + sx];
+
+            if (col_idx == maskColor)
+            {
+                // First step, put everything to layer 2
+                return mask_idx_l2;
+            }
+            else return col_idx;
+        };
+        indices = ApplyPattern(f);
+
+        // Second step, change layer masks
+        for(int ny = 0; ny < N; ++ny)
+            for(int nx = 0; nx < N; ++nx)
+            {
+                if (indices[ny * N + nx] == mask_idx_l2)
+                {
+                    indices[ny * N + nx] = DetermineMask(nx, ny);
+                }
+            }
+
     }
 
     /// <summary>
@@ -78,12 +110,41 @@ public class Pattern
     public bool ContainsColor(byte colorIdx)
     {
         return indices.Any(i => i == colorIdx);
+    }
 
+    public bool ContainsMasks()
+    {
+        return indices.Any(i => i == mask_idx_l1 || i == mask_idx_l2);
     }
 
     public bool ContainsOnly(byte colorIdx)
     {
         return indices.All(i => i == colorIdx);
+    }
+
+    public bool ContainsOnlyMasks()
+    {
+        return indices.All(i => i == mask_idx_l1 || i == mask_idx_l2);
+    }
+
+    public byte DetermineMask(int x, int y)
+    {
+        // If we are one unit away from a boundary, then it's layer 1.
+        // Else it's layer 2.
+        int nx, ny;
+        for(int dy = -1; dy <= 1; dy++)
+            for(int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                nx = x + dx;
+                ny = y + dy;
+                if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
+
+                if (indices[ny * N + nx] == PathOverlapModel.obstacle_idx)
+                    return mask_idx_l1;
+            }
+
+        return mask_idx_l2;
     }
 
     /// <summary>
@@ -138,6 +199,7 @@ public class Pattern
             ymax = dy < 0 ? dy + N : N;
 
         byte c1, c2;
+        Mask tempmask1, tempmask2;
 
         for (int y = ymin; y < ymax; ++y)
         {
@@ -146,18 +208,31 @@ public class Pattern
                 c1 = Get(x, y);
                 c2 = p2.Get(x - dx, y - dy);
 
-                // Mask color should fit with everything but a path
-                if (c1 == mask_idx && c2 == PathOverlapModel.path_idx) return false;
-                if (c2 == mask_idx && c1 == PathOverlapModel.path_idx) return false;
-
-                // As soon as one pair of colors disagree, return false
-                if (c1 != mask_idx && c2 != mask_idx && c1 != c2)
+                tempmask1 = GetMask(c1);
+                tempmask2 = GetMask(c2);
+                if (tempmask1 != null)
+                {
+                    if (!tempmask1.Agrees(c2)) return false;
+                }
+                else if (tempmask2 != null)
+                {
+                    if (!tempmask2.Agrees(c1)) return false;
+                }
+                // No mask
+                else if (c1 != c2)
                     return false;
             }
         }
 
         //Else return true
         return true;
+    }
+
+    public Mask GetMask(int idx)
+    {
+        if (idx == mask_idx_l1) return layer1;
+        else if (idx == mask_idx_l2) return layer2;
+        else return null;
     }
 
     public byte Get(int x, int y)
@@ -172,16 +247,10 @@ public class Pattern
             alphaIsTransparency = true
         };
 
-        byte col;
-
         for (int x = 0; x < N; ++x)
             for(int y = 0; y < N; ++y)
             {
-                col = Get(x, y);
-                if (col == mask_idx)
-                    res.SetPixel(x, y, Color.clear);
-                else
-                    res.SetPixel(x, y, colors[Get(x, y)]);
+                res.SetPixel(x, y, colors[Get(x, y)]);
             }
 
         res.Apply();
