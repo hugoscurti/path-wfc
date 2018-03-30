@@ -14,9 +14,20 @@ public class Mask
     public bool everythingExcept;
 
     // The colors that it accepts
-    public HashSet<int> colors;
+    public int[] colors;
 
+    public Mask(bool everythingExcept, params int[] colors)
+    {
+        this.everythingExcept = everythingExcept;
+        this.colors = colors;
+    }
 
-    // TODO: add utility functions to compare mask with color, or others...
+    public bool Agrees(int idx)
+    {
+        if (everythingExcept)
+            return colors.All(i => idx != i);
+        else
+            return colors.Any(i => idx == i);
+    }
 
 }
