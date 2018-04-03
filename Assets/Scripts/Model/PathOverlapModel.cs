@@ -42,6 +42,8 @@ public class PathOverlapModel
     Pattern[] patterns;
     HashSet<int> maskPatterns;
 
+    HashSet<int> boundaries;
+
     bool[][] wave;
     double[] stationary;
     byte[] output_idx;
@@ -283,6 +285,8 @@ public class PathOverlapModel
 
         FillSpecialColorIndices();
 
+        ConfigureBoundaries();
+
         // Instantiate masks
         Pattern.layer1 = new Mask(true, path_idx);
         Pattern.layer2 = new Mask(true);
@@ -355,51 +359,90 @@ public class PathOverlapModel
         return true;
     }
 
+    /// <summary>
+    /// Set actual boundaries (in the case where obstacles are found on boundaries)
+    /// And filter obstacle boundaries (i.e. no white tiles?)
+    /// </summary>
+    public void ConfigureBoundaries()
+    {
+        // Breadth or depth first search on all borders
+        boundaries = new HashSet<int>();
+        HashSet<int> visited = new HashSet<int>();
+        Queue<int> queue = new Queue<int>();
+
+        int i, temp, x, y;
+
+        // 1. fill queue from boundaries
+
+        // Horizontal boundaries
+        for ( x = 0; x < outsize.width; ++x)
+        {
+            queue.Enqueue(x);
+            queue.Enqueue((outsize.height - 1) * outsize.width + x);
+        }
+
+        // Vertical boundaries
+        for ( y = 1; y < outsize.height - 1; ++y)
+        {
+            queue.Enqueue(y * outsize.width);
+            queue.Enqueue(y * outsize.width + (outsize.width - 1));
+        }
+
+        // Dequeue stuff and determine if boundary or not
+        while (queue.Count > 0)
+        {
+            i = queue.Dequeue();
+
+            if (visited.Contains(i)) continue;
+            else visited.Add(i);
+
+            // If i is not an obstacle, then it's a boundary
+            if (output_idx[i] != obstacle_idx)
+                boundaries.Add(i);
+            else
+            {
+                x = i % outsize.width;
+                y = i / outsize.width;
+                // Add adjacent tiles to queue
+
+                // x offsets
+                temp = x + 1;
+                if (temp < outsize.width) queue.Enqueue(y * outsize.width + temp);
+
+                temp = x - 1;
+                if (temp >= 0) queue.Enqueue(y * outsize.width + temp);
+
+                // y offsets
+                temp = y + 1;
+                if (temp < outsize.height) queue.Enqueue(temp * outsize.width + x);
+
+                temp = y - 1;
+                if (temp >= 0) queue.Enqueue(temp * outsize.width + x);
+            }
+        }
+    }
+
     public bool IsBoundaryBuffer(int x, int y, Pattern p)
     {
-        int patt_col;
-        // Determine if all tiles are rubber spaces (i.e. not path not obstacle not freespace)
-        if (x == 0)
-        {
+        int i, patt;
+        for( int dx = 0; dx < N; ++dx)
             for (int dy = 0; dy < N; ++dy)
             {
-                patt_col = p.Get(0, dy);
-                if (bufferMask.Agrees(patt_col))
-                    return true;
+                i = (y + dy) * outsize.width + (x + dx);
+                if (boundaries.Contains(i))
+                {
+                    patt = p.Get(dx, dy);
+
+                    // It's on boundary
+                    if (bufferMask.Agrees(patt))
+                        return true;
+                }
             }
 
-        } else if (x + N == outsize.width)
-        {
-            for (int dy = 0; dy < N; ++dy)
-            {
-                patt_col = p.Get(N - 1, dy);
-                if (bufferMask.Agrees(patt_col))
-                    return true;
-            }
-        }
-
-        if (y == 0)
-        {
-            if (x == 31) {
-            }
-            for (int dx = 0; dx < N; ++dx)
-            {
-                patt_col = p.Get(dx, 0);
-                if (bufferMask.Agrees(patt_col))
-                    return true;
-            }
-        } else if (y + N == outsize.height)
-        {
-            for (int dx = 0; dx < N; ++dx)
-            {
-                patt_col = p.Get(dx, N - 1);
-                if (bufferMask.Agrees(patt_col))
-                    return true;
-            }
-        }
-
+        // None of them are boundaries
         return false;
     }
+
 
     /// <summary>
     /// Reset wave and changes
@@ -753,11 +796,11 @@ public class PathOverlapModel
                 float contributors = 0, r = 0, g = 0, b = 0, a = 0;
 
                 // Show failure explicitely
-                if (failed && failedAt.x == p.x && failedAt.y == p.y)
-                {
-                    output.SetColor(p, failedColor);
-                    continue;
-                }
+                //if (failed && failedAt.x == p.x && failedAt.y == p.y)
+                //{
+                //    output.SetColor(p, failedColor);
+                //    continue;
+                //}
 
                 for (int dy = 0; dy < N; ++dy)
                     for (int dx = 0; dx < N; ++dx)
@@ -796,6 +839,9 @@ public class PathOverlapModel
                     {
                         output.SetColor(p, newCol);
                     }
+                } else
+                {
+                    output.SetColor(p, failedColor);
                 }
             }
     }
