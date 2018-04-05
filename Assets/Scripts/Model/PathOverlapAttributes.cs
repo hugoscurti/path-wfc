@@ -8,6 +8,7 @@ public class PathOverlapAttributes
     public bool PeriodicOutput;
 
     public bool forbidBufferSpaceOnBoundaries;
+    public bool enforceBufferSpaceOnObstacles;
 
     public bool GenerateMasksFromOutput;
     public bool AddRotationsAndReflexions;

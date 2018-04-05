@@ -36,13 +36,16 @@ public class PathOverlapModel
         freespace_idx = -1,
         path_idx = -1;
 
-    Mask bufferMask;
+    Mask bufferMask,
+        masks;
+
 
 
     Pattern[] patterns;
     HashSet<int> maskPatterns;
 
     HashSet<int> boundaries;
+    HashSet<int> obstacleBoundaries;
 
     bool[][] wave;
     double[] stationary;
@@ -285,12 +288,15 @@ public class PathOverlapModel
 
         FillSpecialColorIndices();
 
-        ConfigureBoundaries();
-
         // Instantiate masks
         Pattern.layer1 = new Mask(true, path_idx);
         Pattern.layer2 = new Mask(true);
-        bufferMask = new Mask(true, path_idx, freespace_idx, obstacle_idx, Pattern.mask_idx_l1, Pattern.mask_idx_l2);
+        bufferMask = new Mask(true, path_idx, freespace_idx, obstacle_idx);
+        masks = new Mask(false, Pattern.mask_idx_l1, Pattern.mask_idx_l2);
+
+        // Set boundaries
+        HashSet<int> visited = ConfigureBoundaries();
+        ConfigureObstacleBoundaries(visited);
 
         int tilecounts = outsize.width * outsize.height;
 
@@ -356,37 +362,17 @@ public class PathOverlapModel
         // Check for borders
         if (attributes.forbidBufferSpaceOnBoundaries && IsBoundaryBuffer(x, y, p)) return false;
 
+        if (attributes.enforceBufferSpaceOnObstacles && IsNotObstacleBoundaryBuffer(x, y, p)) return false;
+
+
+
         return true;
     }
 
-    /// <summary>
-    /// Set actual boundaries (in the case where obstacles are found on boundaries)
-    /// And filter obstacle boundaries (i.e. no white tiles?)
-    /// </summary>
-    public void ConfigureBoundaries()
+    public void FindBoundary(Queue<int> queue, HashSet<int> visited, HashSet<int> result)
     {
-        // Breadth or depth first search on all borders
-        boundaries = new HashSet<int>();
-        HashSet<int> visited = new HashSet<int>();
-        Queue<int> queue = new Queue<int>();
-
-        int i, temp, x, y;
-
-        // 1. fill queue from boundaries
-
-        // Horizontal boundaries
-        for ( x = 0; x < outsize.width; ++x)
-        {
-            queue.Enqueue(x);
-            queue.Enqueue((outsize.height - 1) * outsize.width + x);
-        }
-
-        // Vertical boundaries
-        for ( y = 1; y < outsize.height - 1; ++y)
-        {
-            queue.Enqueue(y * outsize.width);
-            queue.Enqueue(y * outsize.width + (outsize.width - 1));
-        }
+        int i;
+        int x, y, temp;
 
         // Dequeue stuff and determine if boundary or not
         while (queue.Count > 0)
@@ -398,7 +384,7 @@ public class PathOverlapModel
 
             // If i is not an obstacle, then it's a boundary
             if (output_idx[i] != obstacle_idx)
-                boundaries.Add(i);
+                result.Add(i);
             else
             {
                 x = i % outsize.width;
@@ -422,6 +408,65 @@ public class PathOverlapModel
         }
     }
 
+    /// <summary>
+    /// Set actual boundaries (in the case where obstacles are found on boundaries)
+    /// And filter obstacle boundaries (i.e. no white tiles?)
+    /// 
+    /// Returns the set of visited tiles
+    /// </summary>
+    public HashSet<int> ConfigureBoundaries()
+    {
+        // Breadth or depth first search on all borders
+        boundaries = new HashSet<int>();
+        HashSet<int> visited = new HashSet<int>();
+        Queue<int> queue = new Queue<int>();
+
+        int x, y;
+
+        // 1. fill queue from boundaries
+
+        // Horizontal boundaries
+        for ( x = 0; x < outsize.width; ++x)
+        {
+            queue.Enqueue(x);
+            queue.Enqueue((outsize.height - 1) * outsize.width + x);
+        }
+
+        // Vertical boundaries
+        for ( y = 1; y < outsize.height - 1; ++y)
+        {
+            queue.Enqueue(y * outsize.width);
+            queue.Enqueue(y * outsize.width + (outsize.width - 1));
+        }
+
+        FindBoundary(queue, visited, boundaries);
+
+        return visited;
+    }
+
+    public void ConfigureObstacleBoundaries(HashSet<int> visitedBoundaries)
+    {
+        obstacleBoundaries = new HashSet<int>();
+
+        HashSet<int> visited = new HashSet<int>();
+        Queue<int> queue = new Queue<int>();
+        int i;
+
+        for (int x = 1; x < outsize.width - 1; ++x)
+            for (int y = 1; y < outsize.height - 1; ++y)
+            {
+                i = y * outsize.width + x;
+                if (visitedBoundaries.Contains(i)) continue;
+
+                if (output_idx[i] == obstacle_idx)
+                    queue.Enqueue(i);
+            }
+
+        // Find boundaries
+        FindBoundary(queue, visited, obstacleBoundaries);
+    }
+
+
     public bool IsBoundaryBuffer(int x, int y, Pattern p)
     {
         int i, patt;
@@ -434,7 +479,28 @@ public class PathOverlapModel
                     patt = p.Get(dx, dy);
 
                     // It's on boundary
-                    if (bufferMask.Agrees(patt))
+                    if (!masks.Agrees(patt) && bufferMask.Agrees(patt))
+                        return true;
+                }
+            }
+
+        // None of them are boundaries
+        return false;
+    }
+
+    public bool IsNotObstacleBoundaryBuffer(int x, int y, Pattern p)
+    {
+        int i, patt;
+        for (int dx = 0; dx < N; ++dx)
+            for (int dy = 0; dy < N; ++dy)
+            {
+                i = (y + dy) * outsize.width + (x + dx);
+                if (obstacleBoundaries.Contains(i))
+                {
+                    patt = p.Get(dx, dy);
+
+                    // It's on boundary
+                    if (!masks.Agrees(patt) && !bufferMask.Agrees(patt))
                         return true;
                 }
             }
