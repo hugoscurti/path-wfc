@@ -372,7 +372,7 @@ public class PathOverlapModel
     public void FindBoundary(Queue<int> queue, HashSet<int> visited, HashSet<int> result)
     {
         int i;
-        int x, y, temp;
+        int x, y, tempx, tempy;
 
         // Dequeue stuff and determine if boundary or not
         while (queue.Count > 0)
@@ -391,19 +391,15 @@ public class PathOverlapModel
                 y = i / outsize.width;
                 // Add adjacent tiles to queue
 
-                // x offsets
-                temp = x + 1;
-                if (temp < outsize.width) queue.Enqueue(y * outsize.width + temp);
+                // Generate offsets
+                for (tempx = x - 1; tempx <= x + 1; ++tempx)
+                    for (tempy = y - 1; tempy <= y + 1; ++tempy)
+                    {
+                        if (tempx == 0 && tempy == 0) continue;
+                        if (tempx < 0 || tempy < 0 || tempx >= outsize.width || tempy >= outsize.height) continue;
 
-                temp = x - 1;
-                if (temp >= 0) queue.Enqueue(y * outsize.width + temp);
-
-                // y offsets
-                temp = y + 1;
-                if (temp < outsize.height) queue.Enqueue(temp * outsize.width + x);
-
-                temp = y - 1;
-                if (temp >= 0) queue.Enqueue(temp * outsize.width + x);
+                        queue.Enqueue(tempy * outsize.width + tempx);
+                    }
             }
         }
     }
