@@ -22,6 +22,16 @@ public class SelectPatternEditorWindow : EditorWindow
     // Scrollable
     Vector2 scrollPos;
 
+    [MenuItem("Window/Select Pattern")]
+    static void ShowWindow()
+    {
+        var window = GetWindow<SelectPatternEditorWindow>();
+
+        //window.position = new Rect(50, 50, 50, 50);
+        //window.minSize = new Vector2(100, 100);
+        window.Show();
+    }
+
     public void Init(Tilemap target, PathOverlapModel model, Vector2Int tilepos)
     {
         //this.target = target;
@@ -29,7 +39,7 @@ public class SelectPatternEditorWindow : EditorWindow
         this.tilepos = tilepos;
 
         if (model != null)
-            this.patterns = this.model.GetPatternsForWave(this.tilepos);
+            patterns = this.model.GetPatternsForWave(this.tilepos);
     }
 
     private void OnGUI()

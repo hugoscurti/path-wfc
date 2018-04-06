@@ -8,15 +8,6 @@ using System.Linq;
 [CustomEditor(typeof(MapController))]
 public class MapControllerEditor : Editor {
 
-    SerializedProperty selectedInput,
-        selectedOutput;
-
-    private List<FileInfo> inputmaps,
-        outputmaps;
-
-    private string[] inputFilenames,
-        outputFilenames;
-
     public void OnEnable()
     {
     }
