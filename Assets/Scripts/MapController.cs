@@ -20,6 +20,8 @@ public class MapController : MonoBehaviour {
     [MapIterator("Resources/" + OUTPUT_FOLDER)]
     public MapSelector outputSelector = new MapSelector();
 
+    public SpriteRenderer Background;
+
     private Texture2D output;
 
     public void LoadMaps()
@@ -29,6 +31,11 @@ public class MapController : MonoBehaviour {
 
         this.output = Map.LoadMap(outputSelector.GetFile(), OUTPUT_FOLDER);
         LoadMap(outputTarget, this.output);
+
+        // Set background alpha to be the same size as the output
+        Background.size = new Vector2(output.width, output.height);
+        Background.transform.localPosition = new Vector3(output.width/2f, output.height/2f, Background.transform.localPosition.z);
+
     }
 
     public void LoadMap(Tilemap target, Texture2D source)

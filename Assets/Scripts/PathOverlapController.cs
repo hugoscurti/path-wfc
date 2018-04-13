@@ -27,6 +27,7 @@ public class PathOverlapController : MonoBehaviour {
     float lastUpdate = 0f;
     bool? workDone;
     bool firstPropagateDone;
+    bool stepByStep;
 
     private PathOverlapModel model;
     int N = 3;
@@ -100,7 +101,7 @@ public class PathOverlapController : MonoBehaviour {
             model.Print();
     }
 
-    public void ExecuteAlgorithm(bool reset = true)
+    public void ExecuteAlgorithm(bool reset = true, bool step = false)
     {
         if (model == null)
         {
@@ -114,6 +115,8 @@ public class PathOverlapController : MonoBehaviour {
             firstPropagateDone = false;
         }
 
+        stepByStep = step;
+
         // Execute in a separate thread.
         _thread = new Thread(Execute);
 
@@ -122,6 +125,7 @@ public class PathOverlapController : MonoBehaviour {
         // Use the EditorApplication.update event to poll for updates
         EditorApplication.update += EditorUpdate;
     }
+
 
     void EditorUpdate()
     {
@@ -181,6 +185,9 @@ public class PathOverlapController : MonoBehaviour {
         {
             model.Propagate();
             workDone = model.Observe();
+
+            if (stepByStep)
+                _runstate = State.Paused;
         }
 
         if (!workDone.HasValue)

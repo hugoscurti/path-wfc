@@ -37,6 +37,11 @@ public class PathOverlapEditor : Editor
                 src.ExecuteAlgorithm(src.RunState == PathOverlapController.State.Stopped);
         }
 
+        // Step by step button
+        if (GUILayout.Button("Step"))
+            src.ExecuteAlgorithm(src.RunState == PathOverlapController.State.Stopped, true);
+
+
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Stop"))
             src.Cancel();
