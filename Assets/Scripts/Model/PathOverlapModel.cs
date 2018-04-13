@@ -815,29 +815,235 @@ public class PathOverlapModel
             }
     }
 
+    /// <summary>
+    /// Returns the list of indices that represent obstacle
+    /// </summary>
+    public HashSet<int> GetObstacles()
+    {
+        HashSet<int> obstacles = new HashSet<int>();
+
+        for (int i = 0; i < output_idx.Length; ++i)
+            if (output_idx[i] == obstacle_idx)
+                obstacles.Add(i);
+
+        return obstacles;
+    }
 
     /// <summary>
-    /// Return the list of color indices.
+    /// Returns the size of the output map
+    /// </summary>
+    public RectInt GetOutputRect()
+    {
+        return outsize;
+    }
+
+    public int[] GetOutput()
+    {
+        int i, si;
+        bool[] w;
+
+        // Store unique patterns for each input
+        int[] colorindices = new int[outsize.width * outsize.height];
+        for (i = 0; i < colorindices.Length; ++i)
+            colorindices[i] = -1;
+
+        for (int y = 0; y < outsize.height; ++y)
+            for (int x = 0; x < outsize.width; ++x)
+            {
+                i = y * outsize.width + x;
+
+                for (int dy = 0; dy < N; ++dy)
+                    for (int dx = 0; dx < N; ++dx)
+                    {
+                        int sx = x - dx;
+                        if (sx < 0) sx += outsize.width;
+
+                        int sy = y - dy;
+                        if (sy < 0) sy += outsize.height;
+
+                        if (OnBoundary(sx, sy)) continue;
+
+                        si = sy * outsize.width + sx;
+
+                        // TODO: Do we assume that we have a good result everywhere?   
+                        w = wave[si];
+                        for (int t = 0; t < T; ++t)
+                        {
+                            if (w[t])
+                            {
+                                int ind = patterns[t].Get(dx, dy);
+                                if (masks.Agrees(ind))
+                                    // Don't care about mask for now
+                                    continue;
+
+                                if (colorindices[i] == -1)
+                                    colorindices[i] = ind;
+                                else if (colorindices[i] != ind)
+                                    throw new Exception($"Color indices are different! x={x}, y={y}");
+                            }
+                        }
+                    }
+            }
+
+        return colorindices;
+    }
+
+
+    /// <summary>
+    /// Return the list of paths
     /// </summary>
     /// <returns></returns>
-    //private int[,] GetResult()
-    //{
-
-    //}
-
-    /// <summary>
-    /// Remove paths that are not going around an obstacle.
-    /// </summary>
-    public void PostProcessPaths()
+    public List<LinkedList<int>> GetPaths()
     {
-        //int[,] res = GetResult();
-        // 1. Find path or blue tile
+        List<LinkedList<int>> paths = new List<LinkedList<int>>();
+        int[] output = GetOutput();
 
-        // 2. Iterate over the blue portion
+        // At this point, we should have one color index for each position.
+        // We can then look only for paths and filter out the smaller ones (or the ones that don't go around an obstacle?)
+        for (int i = 0; i < output.Length; ++i)
+        {
+            // Tile is not a path
+            if (output[i] != path_idx) continue;
 
-        // 3. If found obstacle, return
+            // Path has already been processed
+            if (paths.Any(p => p.Contains(i))) continue;
 
-        // 4. Else, set all to blank
+            paths.Add(GetPath(i, output));
+        }
+
+
+        return paths;
+    }
+
+    private LinkedList<int> GetPath(int i, int[] output)
+    {
+        int y = i / outsize.width;
+        int x = i % outsize.width;
+
+        int nx, ny, ni;
+
+        // TODO: this should be static
+        int[][] offsets = new int[][]
+        {
+            // Non-diag
+            new int[]{-1 , 0},
+            new int[]{0, -1},
+            new int[]{1, 0 },
+            new int[]{0, 1 },
+
+            //Diag
+            new int[]{-1, -1},
+            new int[]{-1, 1},
+            new int[]{1, -1},
+            new int[]{1, 1},
+        };
+
+        // Process path
+        LinkedList<int> path = new LinkedList<int>();
+        LinkedListNode<int> first = path.AddFirst(i);
+
+        LinkedListNode<int> current = first;
+        nx = x;
+        ny = y;
+
+        bool neighbourset;
+
+        // Look for previous nodes
+        do
+        {
+            neighbourset = false;
+            foreach (int[] offset in offsets)
+            {
+                nx = x + offset[0];
+                ny = y + offset[1];
+                ni = ny * outsize.width + nx;
+
+                if (attributes.PeriodicOutput)
+                {
+                    if (nx < 0) nx = outsize.width - 1;
+                    if (ny < 0) ny = outsize.height - 1;
+                    if (nx >= outsize.width) nx = 0;
+                    if (ny >= outsize.height) ny = 0;
+                } else
+                {
+                    if (nx < 0 || ny < 0 || nx >= outsize.width || ny >= outsize.height)
+                        continue;
+                }
+
+
+                if (output[ni] == path_idx)
+                {
+                    if (IsNextNeighbour(current, ni, true))
+                    {
+                        neighbourset = true;
+                        current = path.AddAfter(current, ni);
+                        x = ni % outsize.width;
+                        y = ni / outsize.width;
+                        break;
+                    }
+                }
+            }
+
+        } while (neighbourset && current.Value != first.Value);
+
+
+        // Look for next nodes (if not cyclic)
+        if (path.First != path.Last)
+        {
+            current = first;
+            x = i % outsize.width;
+            y = i / outsize.width;
+            do
+            {
+                neighbourset = false;
+                foreach (int[] offset in offsets)
+                {
+                    nx = x + offset[0];
+                    ny = y + offset[1];
+                    ni = ny * outsize.width + nx;
+
+                    if (attributes.PeriodicOutput)
+                    {
+                        if (nx < 0) nx = outsize.width - 1;
+                        if (ny < 0) ny = outsize.height - 1;
+                        if (nx >= outsize.width) nx = 0;
+                        if (ny >= outsize.height) ny = 0;
+                    }
+                    else
+                    {
+                        if (nx < 0 || ny < 0 || nx >= outsize.width || ny >= outsize.height)
+                            continue;
+                    }
+
+
+                    if (output[ni] == path_idx)
+                    {
+                        if (IsNextNeighbour(current, ni, true))
+                        {
+                            neighbourset = true;
+                            current = path.AddAfter(current, ni);
+                            x = ni % outsize.width;
+                            y = ni / outsize.width;
+                            break;
+                        }
+                    }
+                }
+            } while (neighbourset && current.Value != first.Value);
+        }
+
+        return path;
+    }
+
+
+    // Determine where this new neighbour will go.
+    // If it already is a neighbour, returns none.
+    public bool IsNextNeighbour(LinkedListNode<int> node, int nextval, bool goforward)
+    {
+        if (node.Previous != null && node.Previous.Value == nextval) return false;
+        if (node.Next != null && node.Next.Value == nextval) return false;
+
+        if (goforward) return node.Next == null;
+        else return node.Previous == null;
     }
 
     /// <summary>
@@ -884,6 +1090,7 @@ public class PathOverlapModel
                                 contributors++;
 
                                 Color c = colors[patterns[t].Get(dx, dy)];
+
                                 r += c.r;
                                 g += c.g;
                                 b += c.b;
