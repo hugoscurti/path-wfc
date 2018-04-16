@@ -22,7 +22,5 @@ public class PostProcessingEditor : Editor
         {
             ctrl.Clear();
         }
-
-
     }
 }

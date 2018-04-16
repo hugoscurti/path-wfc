@@ -22,11 +22,10 @@ public class PostProcessingController : MonoBehaviour
 
     // Prefabs
     public GameObject obstacle;
-    public GameObject agent;
+    public PathOverlapController pathOverlapController;
 
     public Material lineMaterial;
 
-    private List<LinkedList<int>> paths;
     private RectInt imageSize;
     private HashSet<int> obstacles;
 
@@ -35,13 +34,15 @@ public class PostProcessingController : MonoBehaviour
     {
         containers.obstacles.transform.Clear();
         containers.paths.transform.Clear();
+        GetComponent<AgentController>().ClearPaths();
     }
+
 
     public void GenerateMap()
     {
-        var overlapmodel = gameObject.GetComponent<PathOverlapController>().GetModel();
+        var overlapmodel = pathOverlapController.GetModel();
 
-        paths = overlapmodel.GetPaths();
+        var paths = overlapmodel.GetPaths();
         obstacles = overlapmodel.GetObstacles();
         imageSize = overlapmodel.GetOutputRect();
 
@@ -84,8 +85,7 @@ public class PostProcessingController : MonoBehaviour
             waypoint_paths.Add(wp_path);
         }
 
-        // Render lines ?
-        
+        // Render lines
         for (int i = 0; i < waypoint_paths.Count; ++i)
         {
             wp_path = waypoint_paths[i];
@@ -107,11 +107,14 @@ public class PostProcessingController : MonoBehaviour
                 lr.loop = true;
         }
 
+        // Put paths in AgentController
+        GetComponent<AgentController>().SetPaths(waypoint_paths);
 
         // 4. Focus on map
         SceneView scene = SceneView.sceneViews[0] as SceneView;
         scene.in2DMode = false;
-        scene.LookAt(containers.map.transform.position, containers.map.transform.rotation);
+        scene.LookAt(containers.map.transform.position, Quaternion.Euler(50, 0, 0));
+        scene.camera.fieldOfView = 60;
     }
 
 }
