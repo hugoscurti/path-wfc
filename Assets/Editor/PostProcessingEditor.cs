@@ -15,6 +15,7 @@ public class PostProcessingEditor : Editor
 
         if (GUILayout.Button("Generate Paths"))
         {
+            ctrl.Clear();
             ctrl.GenerateMap();
         }
 
@@ -22,5 +23,10 @@ public class PostProcessingEditor : Editor
         {
             ctrl.Clear();
         }
+
+        //if (GUILayout.Button("Combine meshes"))
+        //{
+        //    ctrl.CombineMeshes();
+        //}
     }
 }
