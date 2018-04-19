@@ -48,13 +48,16 @@ public class AgentController : MonoBehaviour
 
     public void EnableAgent()
     {
+        //Stop moving the agent
+        EditorApplication.update -= AgentUpdate;
+
         currentPath = paths[selectedPath];
         currentTarget = currentPath.GetEnumerator();
         if (!currentTarget.MoveNext())
             Debug.LogError("List is empty :(");
 
         if (currentAgent != null)
-            currentAgent.GetComponent<Renderer>().enabled = true;
+            currentAgent.SetActive(true);
         else
             currentAgent = Instantiate(prefabAgent, map.transform, false);
 
@@ -69,7 +72,7 @@ public class AgentController : MonoBehaviour
 
     public void AgentUpdate()
     {
-        Debug.Log(Time.deltaTime);
+        // Debug.Log(Time.deltaTime);
 
         Vector3 direction = currentTarget.Current - currentAgent.transform.localPosition;
         float distance = direction.magnitude;
@@ -99,6 +102,7 @@ public class AgentController : MonoBehaviour
                 }
                 else
                 {
+                    // Move backward?
                     // Stop moving?
                     EditorApplication.update -= AgentUpdate;
                 }
