@@ -54,12 +54,12 @@ public class PostProcessingController : MonoBehaviour
         // 3. Generate vector3 lists for maps
         var waypoint_paths = GenerateWaypointPaths(paths);
 
-        if (attributes.SmoothPath)
+        if (attributes.SmoothPaths)
         {
             foreach (List<Vector3> path in waypoint_paths)
             {
-                SimplifyPaths(path, attributes.SmoothTolerance);
-                SmoothenCorners(path, attributes.ChaikinIterations);
+                SimplifyPaths(path, attributes.Tolerance);
+                SmoothenCorners(path, attributes.Iterations);
             }
         }
         
@@ -142,6 +142,7 @@ public class PostProcessingController : MonoBehaviour
             if (isLoop)
                 lcurr.Add(lcurr[0]);
 
+            // Switch between the 2 lists to prevent instantiating new lists uselessly
             lprev = lcurr;
             lcurr = (lcurr == res ? path : res);
         }

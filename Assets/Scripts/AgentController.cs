@@ -74,39 +74,58 @@ public class AgentController : MonoBehaviour
     {
         // Debug.Log(Time.deltaTime);
 
-        Vector3 direction = currentTarget.Current - currentAgent.transform.localPosition;
-        float distance = direction.magnitude;
-        direction.Normalize();
+        Vector3 direction;
+        float distance;
 
         float distToComplete = Time.deltaTime * speed;
-        if (distToComplete > distance)
-            distToComplete = distance;
-
-        currentAgent.transform.localPosition += distToComplete * direction;
-
-        // If arrived at destination
-        if (Vector3.Distance(currentAgent.transform.localPosition, currentTarget.Current) < 1e-5)
+        while (distToComplete > 0)
         {
-            // Resolve any misdirection due to floating error
-            currentAgent.transform.localPosition = currentTarget.Current;
+            direction = currentTarget.Current - currentAgent.transform.localPosition;
+            distance = direction.magnitude;
+            direction.Normalize();
 
-            if (!currentTarget.MoveNext())
+            if (distance > distToComplete)
+                distance = distToComplete;
+
+            // Move
+            currentAgent.transform.localPosition += distance * direction;
+
+            // If arrived at destination
+            if (currentAgent.transform.localPosition == currentTarget.Current)
             {
-                // See if we must loop
-                if (currentPath.First() == currentPath.Last())
+                // Resolve any misdirection due to floating error
+                //currentAgent.transform.localPosition = currentTarget.Current;
+
+                if (!GetNextDestination())
                 {
-                    // Reset loop
-                    currentTarget = currentPath.GetEnumerator();
-                    currentTarget.MoveNext();   // First == last, we're already there
-                    currentTarget.MoveNext();
-                }
-                else
-                {
-                    // Move backward?
-                    // Stop moving?
                     EditorApplication.update -= AgentUpdate;
+                    return;
                 }
             }
+
+            // Update distance to complete
+            distToComplete -= distance;
         }
+    }
+
+    private bool GetNextDestination()
+    {
+        if (!currentTarget.MoveNext())
+        {
+            // See if we must loop
+            if (currentPath.First() == currentPath.Last())
+            {
+                // Reset loop
+                currentTarget = currentPath.GetEnumerator();
+                currentTarget.MoveNext();   // First == last, we're already there
+                currentTarget.MoveNext();
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
