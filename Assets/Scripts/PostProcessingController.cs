@@ -29,6 +29,7 @@ public class PostProcessingController : MonoBehaviour
     private RectInt imageSize;
     private HashSet<int> obstacles;
 
+    private PostProcessingModel ppmodel = new PostProcessingModel();
 
     public void Clear()
     {
@@ -42,7 +43,8 @@ public class PostProcessingController : MonoBehaviour
     {
         var overlapmodel = pathOverlapController.GetModel();
 
-        var paths = overlapmodel.GetPaths();
+        ppmodel.Init(overlapmodel);
+        var paths = ppmodel.GetPaths();
         obstacles = overlapmodel.GetObstacles();
         imageSize = overlapmodel.GetOutputRect();
 

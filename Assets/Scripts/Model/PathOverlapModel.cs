@@ -61,7 +61,7 @@ public class PathOverlapModel
     double[] logProb; //Log prob for each pattern
     double logT;
 
-    PathOverlapAttributes attributes;
+    public PathOverlapAttributes attributes;
 
     #region Utility Functions
 
@@ -837,6 +837,7 @@ public class PathOverlapModel
         return outsize;
     }
 
+
     public int[] GetOutput()
     {
         int i, si;
@@ -888,163 +889,6 @@ public class PathOverlapModel
         return colorindices;
     }
 
-
-    /// <summary>
-    /// Return the list of paths
-    /// </summary>
-    /// <returns></returns>
-    public List<LinkedList<int>> GetPaths()
-    {
-        List<LinkedList<int>> paths = new List<LinkedList<int>>();
-        int[] output = GetOutput();
-
-        // At this point, we should have one color index for each position.
-        // We can then look only for paths and filter out the smaller ones (or the ones that don't go around an obstacle?)
-        for (int i = 0; i < output.Length; ++i)
-        {
-            // Tile is not a path
-            if (output[i] != path_idx) continue;
-
-            // Path has already been processed
-            if (paths.Any(p => p.Contains(i))) continue;
-
-            paths.Add(GetPath(i, output));
-        }
-
-
-        return paths;
-    }
-
-    private LinkedList<int> GetPath(int i, int[] output)
-    {
-        int y = i / outsize.width;
-        int x = i % outsize.width;
-
-        int nx, ny, ni;
-
-        // TODO: this should be static
-        int[][] offsets = new int[][]
-        {
-            // Non-diag
-            new int[]{-1 , 0},
-            new int[]{0, -1},
-            new int[]{1, 0 },
-            new int[]{0, 1 },
-
-            //Diag
-            new int[]{-1, -1},
-            new int[]{-1, 1},
-            new int[]{1, -1},
-            new int[]{1, 1},
-        };
-
-        // Process path
-        LinkedList<int> path = new LinkedList<int>();
-        LinkedListNode<int> first = path.AddFirst(i);
-
-        LinkedListNode<int> current = first;
-        nx = x;
-        ny = y;
-
-        bool neighbourset;
-
-        // Look for previous nodes
-        do
-        {
-            neighbourset = false;
-            foreach (int[] offset in offsets)
-            {
-                nx = x + offset[0];
-                ny = y + offset[1];
-                ni = ny * outsize.width + nx;
-
-                if (attributes.PeriodicOutput)
-                {
-                    if (nx < 0) nx = outsize.width - 1;
-                    if (ny < 0) ny = outsize.height - 1;
-                    if (nx >= outsize.width) nx = 0;
-                    if (ny >= outsize.height) ny = 0;
-                } else
-                {
-                    if (nx < 0 || ny < 0 || nx >= outsize.width || ny >= outsize.height)
-                        continue;
-                }
-
-
-                if (output[ni] == path_idx)
-                {
-                    if (IsNextNeighbour(current, ni, true))
-                    {
-                        neighbourset = true;
-                        current = path.AddAfter(current, ni);
-                        x = ni % outsize.width;
-                        y = ni / outsize.width;
-                        break;
-                    }
-                }
-            }
-
-        } while (neighbourset && current.Value != first.Value);
-
-
-        // Look for next nodes (if not cyclic)
-        if (path.First != path.Last)
-        {
-            current = first;
-            x = i % outsize.width;
-            y = i / outsize.width;
-            do
-            {
-                neighbourset = false;
-                foreach (int[] offset in offsets)
-                {
-                    nx = x + offset[0];
-                    ny = y + offset[1];
-                    ni = ny * outsize.width + nx;
-
-                    if (attributes.PeriodicOutput)
-                    {
-                        if (nx < 0) nx = outsize.width - 1;
-                        if (ny < 0) ny = outsize.height - 1;
-                        if (nx >= outsize.width) nx = 0;
-                        if (ny >= outsize.height) ny = 0;
-                    }
-                    else
-                    {
-                        if (nx < 0 || ny < 0 || nx >= outsize.width || ny >= outsize.height)
-                            continue;
-                    }
-
-
-                    if (output[ni] == path_idx)
-                    {
-                        if (IsNextNeighbour(current, ni, true))
-                        {
-                            neighbourset = true;
-                            current = path.AddAfter(current, ni);
-                            x = ni % outsize.width;
-                            y = ni / outsize.width;
-                            break;
-                        }
-                    }
-                }
-            } while (neighbourset && current.Value != first.Value);
-        }
-
-        return path;
-    }
-
-
-    // Determine where this new neighbour will go.
-    // If it already is a neighbour, returns none.
-    public bool IsNextNeighbour(LinkedListNode<int> node, int nextval, bool goforward)
-    {
-        if (node.Previous != null && node.Previous.Value == nextval) return false;
-        if (node.Next != null && node.Next.Value == nextval) return false;
-
-        if (goforward) return node.Next == null;
-        else return node.Previous == null;
-    }
 
     /// <summary>
     /// Print in the array of tiles 
