@@ -81,8 +81,7 @@ public class PathOverlapController : MonoBehaviour {
 
     private void firstPropagate()
     {
-        model.PropagateFixedWaves(true);
-        model.PropagateMasks(true);
+        model.Propagate();
         firstPropagateDone = true;
     }
 
@@ -174,11 +173,7 @@ public class PathOverlapController : MonoBehaviour {
         long begin = System.DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
         if (!firstPropagateDone)
-        {
-            model.PropagateFixedWaves(true);
-            model.PropagateMasks(true);
-            firstPropagateDone = true;
-        }
+            firstPropagate();
 
         workDone = null;
         while (_runstate == State.Running && workDone == null)
@@ -203,6 +198,7 @@ public class PathOverlapController : MonoBehaviour {
             else
                 status = "Failed";
         }
+
 
         // End timing
         long end = System.DateTimeOffset.Now.ToUnixTimeMilliseconds();

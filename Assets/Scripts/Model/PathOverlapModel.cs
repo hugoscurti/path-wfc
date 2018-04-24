@@ -12,7 +12,6 @@ public class PathOverlapModel
     int N;  //Edge size of pattern
     int T;  //Total number of unique patterns
     int C;  //Color counts
-    int overlap_N; //Maximum overlap size
 
     Color failedColor = Color.yellow;
     bool failed;
@@ -39,7 +38,10 @@ public class PathOverlapModel
     Mask bufferMask,
         masks;
 
-
+    // Lists of offsets
+    static int[] DX = { -1, 0, 1, 0 };
+    static int[] DY = { 0, 1, 0, -1 };
+    static int[] opposite = { 2, 3, 0, 1 };
 
     Pattern[] patterns;
     HashSet<int> maskPatterns;
@@ -48,18 +50,24 @@ public class PathOverlapModel
     HashSet<int> obstacleBoundaries;
 
     bool[][] wave;
-    double[] stationary;
+    int[][][] compatible;
+
     byte[] output_idx;
 
-    int[,][][] propagator;
+    int[][][] propagator;
 
-    bool[] changes;
-    FixedStack<int> indexstack;
+    FixedStack<Tuple<int, int>> indexstack;
 
     System.Random random;
 
-    double[] logProb; //Log prob for each pattern
-    double logT;
+    // Weight values
+    double[] weights;
+    double[] weightLogWeights;
+
+    // Accumulated values needed to copmute logs
+    int[] sumsOfOnes;
+    double sumOfWeights, sumOfWeightLogWeights, startingEntropy;
+    double[] sumsOfWeights, sumsOfWeightLogWeights, entropies;
 
     public PathOverlapAttributes attributes;
 
@@ -120,38 +128,19 @@ public class PathOverlapModel
         return indices;
     }
 
-    /// <summary>
-    /// Put an index on the stack
-    /// </summary>
-    private void Change(int i)
-    {
-        if (changes[i]) return;
-
-        indexstack.Push(i);
-        changes[i] = true;
-    }
-
-
-    private void FillLogs()
-    {
-        logT = Math.Log(T);
-        logProb = new double[T];
-        for (int t = 0; t < T; t++)
-            logProb[t] = Math.Log(stationary[t]);
-    }
 
     private bool OnBoundary(int x, int y)
     {
         return !attributes.PeriodicOutput &&
-            (x + N > outsize.width || y + N > outsize.height);
+            (x + N > outsize.width || y + N > outsize.height
+            || x < 0 || y < 0);
     }
 
-    private int GetSecondIndex(int i1, int di, int length)
+    private int WrapAround(int i2, int length)
     {
-        int i2 = i1 + di;
-        if (i2 < 0) i2 += length;
-        else if (i2 >= length) i2 -= length;
-        return i2;
+        if (i2 < 0) return i2 + length;
+        else if (i2 >= length) return i2 - length;
+        else return i2;
     }
 
 
@@ -191,14 +180,13 @@ public class PathOverlapModel
         T = patternCounts.Count;
         patterns = new Pattern[T];
         maskPatterns = new HashSet<int>();
-        stationary = new double[T];
-        propagator = new int[overlap_N, overlap_N][][];
+        weights = new double[T];
 
         int idx = 0;
         foreach (long key in patternCounts.Keys)
         {
             patterns[idx] = patternDict[key];
-            stationary[idx] = attributes.UseRandomWeights ? 1 : patternCounts[key];
+            weights[idx] = attributes.UseRandomWeights ? 1 : patternCounts[key];
 
             // Keep track of patterns with mask colors
             if (patterns[idx].ContainsMasks())
@@ -265,7 +253,6 @@ public class PathOverlapModel
     public PathOverlapModel(Tilemap input, Tilemap output, int N, PathOverlapAttributes attributes)
     {
         this.N = N;
-        this.overlap_N = 2 * N - 1;
         this.input = input;
         this.output = output;
         this.attributes = attributes;
@@ -298,29 +285,53 @@ public class PathOverlapModel
         HashSet<int> visited = ConfigureBoundaries();
         ConfigureObstacleBoundaries(visited);
 
-        int tilecounts = outsize.width * outsize.height;
+        int tilecount = outsize.width * outsize.height;
 
-        wave = new bool[tilecounts][];
-        changes = new bool[tilecounts];
-        indexstack = new FixedStack<int>(tilecounts);
+        wave = new bool[tilecount][];
+        compatible = new int[tilecount][][];
 
+        // We set T in this function!
         ExtractPattern(indices, this.attributes.GenerateMasksFromOutput);
 
-        // Initialize wave array
+        indexstack = new FixedStack<Tuple<int, int>>(tilecount * T);
+
+        // Initialize wave and compatible arrays
         for (int i = 0; i < wave.Length; ++i)
+        {
             wave[i] = new bool[T];
+            compatible[i] = new int[T][];
+            for (int t = 0; t < T; ++t) compatible[i][t] = new int[4];
+        }
+
+        // Initialize fixed arrays
+        weightLogWeights = new double[T];
+        sumOfWeights = 0;
+        sumOfWeightLogWeights = 0;
+
+        for (int t = 0; t < T; t++)
+        {
+            weightLogWeights[t] = weights[t] * Math.Log(weights[t]);
+            sumOfWeights += weights[t];
+            sumOfWeightLogWeights += weightLogWeights[t];
+        }
+
+        startingEntropy = Math.Log(sumOfWeights) - sumOfWeightLogWeights / sumOfWeights;
+
+        // Intialize sum arrays
+        sumsOfOnes = new int[tilecount];
+        sumsOfWeights = new double[tilecount];
+        sumsOfWeightLogWeights = new double[tilecount];
+        entropies = new double[tilecount];
+
 
         // Populate propagator
-        for (int x = 0; x < overlap_N; ++x)
-            for (int y = 0; y < overlap_N; ++y)
-            {
-                propagator[x, y] = new int[T][];
-                int dx = x - N + 1,
-                    dy = y - N + 1;
-
-                for (int t = 0; t < T; ++t)
-                    propagator[x, y][t] = patterns[t].Overlap(patterns, dx, dy).ToArray();
-            }
+        propagator = new int[4][][];
+        for (int d = 0; d < 4; ++d)
+        {
+            propagator[d] = new int[T][];
+            for (int t = 0; t < T; ++t)
+                propagator[d][t] = patterns[t].Overlap(patterns, DX[d], DY[d]).ToArray();
+        }
     }
 
     #endregion
@@ -511,9 +522,28 @@ public class PathOverlapModel
     /// </summary>
     public void Clear()
     {
-        bool[] w;
-        int i;
+        // 1. Clear everything
+        for (int i = 0; i < wave.Length; i++)
+        {
+            for (int t = 0; t < T; t++)
+            {
+                wave[i][t] = true;
+                for (int d = 0; d < 4; d++) compatible[i][t][d] = propagator[opposite[d]][t].Length;
+            }
 
+            sumsOfOnes[i] = weights.Length;
+            sumsOfWeights[i] = sumOfWeights;
+            sumsOfWeightLogWeights[i] = sumOfWeightLogWeights;
+            entropies[i] = startingEntropy;
+        }
+    }
+
+    public void FixInitialValues()
+    {
+        int i;
+        bool[] w;
+
+        // 2. Fix initial values
         for( int y = 0; y < outsize.height; ++y)
             for (int x = 0; x < outsize.width; ++x)
             {
@@ -521,25 +551,24 @@ public class PathOverlapModel
 
                 i = y * outsize.width + x;
                 w = wave[i];
+
                 for (int t = 0; t < T; ++t)
-                    w[t] = PatternFits(x, y, patterns[t]);
+                    if (w[t] && w[t] != PatternFits(x, y, patterns[t])) Ban(i, t);
 
                 // Filter out patterns that are enclosed in a masked pattern
                 foreach (int t in maskPatterns)
                 {
-                    if (w[t])
-                        FilterPatternsThatFitMask(t, w);
+                    if (w[t]) FilterPatternsThatFitMask(t, i);
                 }
-
-                changes[i] = false;
             }
     }
 
-    private void FilterPatternsThatFitMask(int mask_pattern, bool[] w)
+    private void FilterPatternsThatFitMask(int mask_pattern, int i)
     {
         Pattern mp = patterns[mask_pattern];
         Pattern p;
         bool fits;
+        bool[] w = wave[i];
         for ( int t = 0; t < T; ++t)
         {
             if (!w[t]) continue;    // Already false, doesn't need to try to filter it up
@@ -556,8 +585,9 @@ public class PathOverlapModel
                         break;
                     }
                 }
-            if (fits)
-                w[t] = false;
+
+            // If pattern fits the mask then we ban it
+            if (fits) Ban(i, t);
         }
     }
 
@@ -568,24 +598,39 @@ public class PathOverlapModel
     {
         indexstack.Clear();
 
-        FillLogs();
         Clear();
+        FixInitialValues();
         random = new System.Random(seed);
     }
 
 
-    private double CalculateEntropy(bool[] w, double amount, double sum)
+    private void UpdateLogsAndEntropies(int i, int t)
     {
-        if (amount == 1) return 0;
-        else if (amount == T) return logT;
-        else
-        {
-            double mainSum = 0;
-            for (int t = 0; t < T; ++t)
-                if (w[t]) mainSum += stationary[t] * logProb[t];
+        double sum = sumsOfWeights[i];
+        entropies[i] += sumsOfWeightLogWeights[i] / sum - Math.Log(sum);
 
-            return Math.Log(sum) - mainSum / sum;
-        }
+        sumsOfOnes[i] -= 1;
+        sumsOfWeights[i] -= weights[t];
+        sumsOfWeightLogWeights[i] -= weightLogWeights[t];
+
+        sum = sumsOfWeights[i];
+        entropies[i] -= sumsOfWeightLogWeights[i] / sum - Math.Log(sum);
+    }
+
+    /// <summary>
+    /// Ban elements from the observed states
+    /// </summary>
+    private void Ban(int i, int t)
+    {
+        wave[i][t] = false;
+
+        // Set the number of compatible patterns to 0
+        int[] comp = compatible[i][t];
+        for (int d = 0; d < 4; ++d) comp[d] = 0;
+
+        indexstack.Push(new Tuple<int, int>(i, t));
+
+        UpdateLogsAndEntropies(i, t);
     }
 
     public void FixWave(Vector2Int pos, int patternIdx)
@@ -595,65 +640,11 @@ public class PathOverlapModel
         bool[] w = wave[i];
 
         for (int t = 0; t < T; ++t)
-            w[t] = t == patternIdx;
+            if (w[t] != (t == patternIdx)) Ban(i, t);
 
-        Change(i);
         Propagate();
     }
 
-    /// <summary>
-    /// Gets all the tiles that have fixed pattern (i.e. one possible pattern) and propagates them)
-    /// </summary>
-    public void PropagateFixedWaves(bool propagate)
-    {
-        int i;
-
-        for (int y = 0; y < outsize.height; ++y)
-            for (int x = 0; x < outsize.width; ++x)
-            {
-                i = y * outsize.width + x;
-
-                if (OnBoundary(x, y)) continue;
-
-                if (wave[i].Count(t => t) == 1)
-                    Change(i);
-            }
-
-        if (propagate)
-            Propagate();
-    }
-
-
-    /// <summary>
-    /// Propagate the tiles that have masked color in them (since they are more constrained)
-    /// </summary>
-    /// <param name="propagate"></param>
-    public void PropagateMasks(bool propagate)
-    {
-        bool[] w;
-        int i;
-
-        for (int y = 0; y < outsize.height; ++y)
-            for (int x = 0; x < outsize.width; ++x)
-            {
-                if (OnBoundary(x, y)) continue;
-
-                i = y * outsize.width + x;
-                w = wave[i];
-
-                foreach (int t in maskPatterns)
-                {
-                    if (w[t])
-                    {
-                        Change(i);
-                        break;
-                    }
-                }
-            }
-
-        if (propagate)
-            Propagate();
-    }
 
     /// <summary>
     /// Calculate entropy for each pattern, for each position in output
@@ -663,74 +654,48 @@ public class PathOverlapModel
         double minEnt = 1e+3;
         int indexmin = -1;
 
-        bool[] w;
-        int i;
+        for (int i = 0; i < wave.Length; ++i)
+        {
+            if (OnBoundary(i % outsize.width, i / outsize.width)) continue;
 
-        for (int x = 0; x < outsize.width; ++x)
-            for (int y = 0; y < outsize.height; ++y)
+            int amount = sumsOfOnes[i];
+            if (amount == 0)
             {
-                if (OnBoundary(x, y)) continue;
+                Debug.Log($"Failed at { i % outsize.width },{i / outsize.width}");
+                //failedAt = new Vector2Int(i % outsize.width, i / outsize.width);
+                failed = true;
+                return false;
+            }
 
-                i = y * outsize.width + x;
-                w = wave[i];
-                double amount = 0;
-                double sum = 0;
-
-                for (int t = 0; t < T; ++t)
+            double entropy = entropies[i];
+            if (amount > 1 && entropy <= minEnt)
+            {
+                entropy += 1e-6 * random.NextDouble(); // add noise to entropy
+                if (entropy < minEnt)
                 {
-                    if (w[t])
-                    {
-                        amount += 1;
-                        sum += stationary[t];
-                    }
-                }
-
-                // Cannot divide by zero, and we divide by the sum when finding the entropy
-                if (sum == 0)
-                {
-                    Debug.Log($"Failed at {x},{y}");
-                    failedAt = new Vector2Int(x, y);
-                    failed = true;
-                    return false;
-                }
-
-                // Calculate entropy
-                double noise = 1e-6 * random.NextDouble();
-                double entropy = CalculateEntropy(w, amount, sum);
-
-                // Store as min if smaller than min
-                // For equal values, we use a small random value to decide which one to use
-                if (entropy > 0 && entropy + noise < minEnt)
-                {
-                    minEnt = entropy + noise;
+                    minEnt = entropy;
                     indexmin = i;
                 }
             }
+        }
 
         // Returning true means the algorithm converged
         if (indexmin == -1)
             return true;
 
         double[] distribution = new double[T];
-        bool[] w1 = wave[indexmin];
+        bool[] w = wave[indexmin];
 
         // Fill in weights
         for (int t = 0; t < T; t++)
-        {
-            if (w1[t])
-                distribution[t] = stationary[t];
-            else
-                distribution[t] = 0;
-        }
+            distribution[t] = w[t] ? weights[t] : 0;
 
         // Choose one pattern indexed at r
         int r = distribution.Random(random.NextDouble());
 
+        // Ban all patterns except r
         for (int t = 0; t < T; t++)
-            // Set one pattern r in T to be observed. Set others to false
-            w1[t] = t == r;
-
-        Change(indexmin);
+            if (w[t] != (t == r)) Ban(indexmin, t);
 
         // Algorithm is not finished yet
         return null;
@@ -740,10 +705,9 @@ public class PathOverlapModel
     {
         while (!indexstack.IsEmpty())
         {
-            int i = indexstack.Pop();
-            changes[i] = false;
+            Tuple<int, int> e1 = indexstack.Pop();
 
-            _Propagate(i);
+            _Propagate(e1);
         }
     }
 
@@ -756,63 +720,43 @@ public class PathOverlapModel
         if (indexstack.IsEmpty())
             return false;
 
-        int i = indexstack.Pop();
-        changes[i] = false;
+        Tuple<int, int> e1 = indexstack.Pop();
 
-        _Propagate(i);
+        _Propagate(e1);
 
         return true;
     }
 
         
-    private void _Propagate(int i1)
+    private void _Propagate(Tuple<int, int> e1)
     {
+        int i1 = e1.Item1;
         int x1 = i1 % outsize.width,
             y1 = i1 / outsize.width;
-        bool[] w1 = wave[i1];
-
-        //if (w1.All(w => !w)) {
-        //    // For debug purposes
-        //}
 
         // Iterate over all overlap combinations
-        for (int dx = -N + 1; dx < N; ++dx)
-            for (int dy = -N + 1; dy < N; ++dy)
+        for (int d = 0; d < 4; ++d)
+        {
+            int x2 = x1 + DX[d], y2 = y1 + DY[d];
+            // If on boundary
+            if (OnBoundary(x2, y2)) continue;
+
+            // Wrap around if necessary
+            x2 = WrapAround(x2, outsize.width);
+            y2 = WrapAround(y2, outsize.height);
+            int i2 = y2 * outsize.width + x2;
+
+            int[] p = propagator[d][e1.Item2];
+            int[][] compat = compatible[i2];
+
+            for (int l = 0; l < p.Length; ++l)
             {
-                int x2 = GetSecondIndex(x1, dx, outsize.width),
-                    y2 = GetSecondIndex(y1, dy, outsize.height),
-                    i2 = y2 * outsize.width + x2;
+                int t2 = p[l];
+                int[] comp = compat[t2];
 
-                // If on boundary
-                if (OnBoundary(x2, y2)) continue;
-
-                bool[] w2 = wave[i2];
-                int[][] prop = propagator[N - 1 - dx, N - 1 - dy];
-                bool oneIsTrue = false;
-
-                for (int t2 = 0; t2 < T; ++t2)
-                {
-                    if (!w2[t2]) continue;
-
-                    int[] p = prop[t2];
-
-                    if (p.Length > 0) {
-                        if (p.All(i => !w1[i]))
-                        {
-                            // If no overlap, then we set it to false and put in the stack
-                            w2[t2] = false;
-                            Change(i2);
-                        } else
-                        {
-                            oneIsTrue = true;
-                        }
-                    }
-                }
-
-                // If all are false, then algorithm fails
-                if (!oneIsTrue)
-                    return;
+                if (--comp[d] == 0) Ban(i2, t2);
             }
+        }
     }
 
     /// <summary>
@@ -905,14 +849,7 @@ public class PathOverlapModel
         for (p.y = 0; p.y < outsize.height; ++p.y)
             for (p.x = 0; p.x < outsize.width; ++p.x)
             {
-                float contributors = 0, r = 0, g = 0, b = 0, a = 0;
-
-                // Show failure explicitely
-                //if (failed && failedAt.x == p.x && failedAt.y == p.y)
-                //{
-                //    output.SetColor(p, failedColor);
-                //    continue;
-                //}
+                float contributors = 0, alpha_contrib = 0, r = 0, g = 0, b = 0, a = 0;
 
                 for (int dy = 0; dy < N; ++dy)
                     for (int dx = 0; dx < N; ++dx)
@@ -931,21 +868,25 @@ public class PathOverlapModel
                         {
                             if (w[t])
                             {
-                                contributors++;
-
                                 Color c = colors[patterns[t].Get(dx, dy)];
 
-                                r += c.r;
-                                g += c.g;
-                                b += c.b;
+                                alpha_contrib++;
                                 a += c.a;
+
+                                if (c != Color.clear)
+                                {
+                                    contributors++;
+                                    r += c.r;
+                                    g += c.g;
+                                    b += c.b;
+                                }
                             }
                         }
                     }
 
-                if (contributors != 0)
+                if (alpha_contrib != 0)
                 {
-                    Color newCol = new Color(r / contributors, g / contributors, b / contributors, a / contributors);
+                    Color newCol = new Color(r / contributors, g / contributors, b / contributors, a / alpha_contrib);
 
                     // An attempt at changing only the relevant tiles (i.e. change it only if the color is different)
                     if (output.GetColor(p) != newCol)
