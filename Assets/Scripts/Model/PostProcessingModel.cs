@@ -80,7 +80,7 @@ public class PostProcessingModel
 
 
         // Look for next nodes (if not cyclic)
-        if (path.First != path.Last)
+        if (path.First.Value != path.Last.Value)
         {
             current = first;
             x = i % outsize.width;

@@ -98,6 +98,7 @@ public class PostProcessingController : MonoBehaviour
 
     public void RemoveSmallerPaths(List<LinkedList<int>> paths)
     {
+        // We count paths length using edge. E.g. a path of 2 points is of size 1
         var removed = paths.RemoveAll(path => path.Count - 1 < attributes.MinPathLengh);
         Debug.Log($"Removed {removed} paths.");
     }
