@@ -178,6 +178,7 @@ public class PathOverlapModel
 
         // Set propagators and other things
         T = patternCounts.Count;
+        Debug.Log($"Number of patterns: {T}");
         patterns = new Pattern[T];
         maskPatterns = new HashSet<int>();
         weights = new double[T];
