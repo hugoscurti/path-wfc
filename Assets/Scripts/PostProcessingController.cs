@@ -96,6 +96,11 @@ public class PostProcessingController : MonoBehaviour
         CreateObstacles();
     }
 
+    //public bool CrossObstacle(Vector2 p1, Vector2 p2)
+    //{
+
+    //}
+
     public void RemoveSmallerPaths(List<LinkedList<int>> paths)
     {
         // We count paths length using edge. E.g. a path of 2 points is of size 1
@@ -120,6 +125,8 @@ public class PostProcessingController : MonoBehaviour
             path.Add(origPath[p]);
     }
 
+
+    // Chaikin corner cutting algorithm
     public void SmoothenCorners(List<Vector3> path, int levels)
     {
         bool isLoop = path.First() == path.Last();

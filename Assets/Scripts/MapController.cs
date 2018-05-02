@@ -50,6 +50,8 @@ public class MapController : MonoBehaviour {
         DestroyTiles(inputTarget);
         DestroyTiles(outputTarget);
 
+        EditorUtility.UnloadUnusedAssetsImmediate();
+        GC.Collect();
     }
 
     public void DestroyTiles(Tilemap target)
