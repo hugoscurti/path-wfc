@@ -141,7 +141,8 @@ public class Map
         char c;
         string line;
 
-        for (int y = 0; y < map.Height; ++y)
+        //Values are stored from bottom to top, so we iterate backwards
+        for (int y = map.Height - 1; y >= 0; --y)
         {
             line = sr.ReadLine();
 
