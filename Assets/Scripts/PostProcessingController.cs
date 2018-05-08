@@ -60,6 +60,7 @@ public class PostProcessingController : MonoBehaviour
         {
             foreach (List<Vector3> path in waypoint_paths)
             {
+                // Simplify paths even with tolerance 0 will get rid of all points on a line and keep only the first and last point of the line
                 SimplifyPaths(path, attributes.Tolerance);
                 SmoothenCorners(path, attributes.Iterations);
             }
@@ -96,10 +97,30 @@ public class PostProcessingController : MonoBehaviour
         CreateObstacles();
     }
 
-    //public bool CrossObstacle(Vector2 p1, Vector2 p2)
-    //{
+    public bool CrossObstacle(Vector2 p1, Vector2 p2)
+    {
+        // Add a small threshold to the Rect
+        float threshold = 0.2f;
 
-    //}
+        // Ray's direction is normalized...
+        Vector2 dist = p2 - p1;
+        float maxDist = dist.magnitude;
+        Ray2D ray = new Ray2D(p1, dist);
+        Rect obst = new Rect();
+        foreach (int i in obstacles)
+        {
+            /// Set obstacle
+            obst.x = (i % imageSize.width) - threshold;
+            obst.y = (i / imageSize.width) - threshold;
+            obst.size =  Vector2.one * (1 + threshold * 2);
+
+            // Set line
+            if (ray.Intersect(obst, maxDist))
+                return true;
+        }
+
+        return false;
+    }
 
     public void RemoveSmallerPaths(List<LinkedList<int>> paths)
     {
@@ -132,7 +153,7 @@ public class PostProcessingController : MonoBehaviour
         bool isLoop = path.First() == path.Last();
         if (levels == 0) return;
 
-        Vector3 qi, ri;
+        Vector3 qi, ri, rprev = Vector3.zero;
 
         List<Vector3> res = new List<Vector3>(path);
         List<Vector3> lprev = path, lcurr = res;
@@ -144,13 +165,31 @@ public class PostProcessingController : MonoBehaviour
             {
                 qi = 0.75f * lprev[i] + 0.25f * lprev[i + 1];
                 ri = 0.25f * lprev[i] + 0.75f * lprev[i + 1];
+
+
+                // See if new lines intersect obstacles
+                if (i > 0)
+                {
+                    if (CrossObstacle(new Vector2(rprev.x, rprev.z), new Vector2(qi.x, qi.z)))
+                        // Insert old point
+                        lcurr.Add(lprev[i]);
+                }
+
                 lcurr.Add(qi);
                 lcurr.Add(ri);
+
+                rprev = ri;
             }
 
             // Close loop if it's a loop
             if (isLoop)
+            {
+                if (CrossObstacle(new Vector2(rprev.x, rprev.z), new Vector2(lcurr[0].x, lcurr[0].z)))
+                    // Insert old point
+                    lcurr.Add(lprev[0]);
+
                 lcurr.Add(lcurr[0]);
+            }
 
             // Switch between the 2 lists to prevent instantiating new lists uselessly
             lprev = lcurr;
