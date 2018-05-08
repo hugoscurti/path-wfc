@@ -61,7 +61,9 @@ public class PostProcessingController : MonoBehaviour
             foreach (List<Vector3> path in waypoint_paths)
             {
                 // Simplify paths even with tolerance 0 will get rid of all points on a line and keep only the first and last point of the line
-                SimplifyPaths(path, attributes.Tolerance);
+                if (attributes.LookForObstacles) SimplifyPathsV2(path, attributes.Tolerance);
+                else SimplifyPaths(path, attributes.Tolerance);
+
                 SmoothenCorners(path, attributes.Iterations);
             }
         }
@@ -144,6 +146,76 @@ public class PostProcessingController : MonoBehaviour
         path.Clear();
         foreach (int p in keepPoints)
             path.Add(origPath[p]);
+    }
+
+    public void SimplifyPathsV2(List<Vector3> path, float tolerance)
+    {
+        //Ramer-Douglas-Peucker for path simplification
+        HashSet<int> toRemove = new HashSet<int>();
+
+        Queue<Tuple<int, int>> lineQueue = new Queue<Tuple<int, int>>();
+        Tuple<int, int> line;
+
+        Vector2 start, end, point = start = end = Vector2.zero;
+
+        // Start with first and last point
+        lineQueue.Enqueue(new Tuple<int, int>(0, path.Count - 1));
+
+        while (lineQueue.Count > 0)
+        {
+            int maxPoint = 0;
+            float dist, maxDist = -1;
+
+            line = lineQueue.Dequeue();
+
+            start.Set(path[line.Item1].x, path[line.Item1].z);
+            end.Set(path[line.Item2].x, path[line.Item2].z);
+
+            // Find furthest point from the line
+            for(int i = line.Item1 + 1; i < line.Item2; ++i)
+            {
+                point.Set(path[i].x, path[i].z);
+                dist = PerpDist(start, end, point);
+
+                if (dist > maxDist)
+                {
+                    maxDist = dist;
+                    maxPoint = i;
+                }
+            }
+
+            // If distance is smaller than epsilon and 
+            if (maxDist <= tolerance && !CrossObstacle(start, end))
+            {
+                // Remove points between start and end
+                for (int i = line.Item1 + 1; i < line.Item2; ++i)
+                    toRemove.Add(i);
+
+            } else {
+                // Split in 2
+                lineQueue.Enqueue(new Tuple<int, int>(line.Item1, maxPoint));
+                lineQueue.Enqueue(new Tuple<int, int>(maxPoint, line.Item2));
+            }
+        }
+
+        // Remove all points from toRemove
+        for(int i = path.Count - 1; i >= 0; --i)
+        {
+            if (toRemove.Contains(i))
+                path.RemoveAt(i);
+        }
+    }
+
+    private float PerpDist(Vector2 start, Vector2 end, Vector2 point)
+    {
+        if (start == end)
+            // Point-to-point distance
+            return Vector2.Distance(start, point);
+
+        float num = (end.y - start.y) * point.x - (end.x - start.x) * point.y + (end.x * start.y) - (end.y * start.x);
+        num = Mathf.Abs(num);
+
+        return num / Vector2.Distance(start, end);
     }
 
 
