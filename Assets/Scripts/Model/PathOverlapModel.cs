@@ -39,9 +39,9 @@ public class PathOverlapModel
         masks;
 
     // Lists of offsets
-    static int[] DX = { -1, 0, 1, 0 };
-    static int[] DY = { 0, 1, 0, -1 };
-    static int[] opposite = { 2, 3, 0, 1 };
+    static readonly int[] DX = { -1, 0, 1, 0 };
+    static readonly int[] DY = { 0, 1, 0, -1 };
+    static readonly int[] opposite = { 2, 3, 0, 1 };
 
     Pattern[] patterns;
     HashSet<int> maskPatterns;
