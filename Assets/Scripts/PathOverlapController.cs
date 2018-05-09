@@ -9,12 +9,6 @@ public class PathOverlapController : MonoBehaviour {
 
     int seed;
     string status = "Stopped";
-    public enum State
-    {
-        Stopped,
-        Running,
-        Paused
-    }
 
     float timeRun = -1;
 

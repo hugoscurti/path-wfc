@@ -27,19 +27,19 @@ public class PathOverlapEditor : Editor
         GUILayout.EndHorizontal();
 
         // Change button based on running state
-        if (src.RunState == PathOverlapController.State.Running)
+        if (src.RunState == State.Running)
         {
             if (GUILayout.Button("Pause"))
                 src.Pause();
         } else
         {
             if (GUILayout.Button("Play"))
-                src.ExecuteAlgorithm(src.RunState == PathOverlapController.State.Stopped);
+                src.ExecuteAlgorithm(src.RunState == State.Stopped);
         }
 
         // Step by step button
         if (GUILayout.Button("Step"))
-            src.ExecuteAlgorithm(src.RunState == PathOverlapController.State.Stopped, true);
+            src.ExecuteAlgorithm(src.RunState == State.Stopped, true);
 
 
         GUILayout.BeginHorizontal();
