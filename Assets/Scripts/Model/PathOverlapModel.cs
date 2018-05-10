@@ -73,19 +73,6 @@ public class PathOverlapModel
 
     #region Utility Functions
 
-    /// <summary>
-    /// Return the index of Color c from the colors array
-    /// </summary>
-    private byte GetColorIndex(Color c)
-    {
-        var idx = colors.IndexOf(c);
-
-        if (idx == -1)
-            throw new NotSupportedException("Color not found");
-
-        return (byte)idx;
-    }
-
 
     /// <summary>
     /// Find indices for the color corresponding to obstacle and freespace
@@ -558,9 +545,7 @@ public class PathOverlapModel
 
                 // Filter out patterns that are enclosed in a masked pattern
                 foreach (int t in maskPatterns)
-                {
                     if (w[t]) FilterPatternsThatFitMask(t, i);
-                }
             }
     }
 
@@ -783,15 +768,13 @@ public class PathOverlapModel
     }
 
 
-    public int[] GetOutput()
+    public bool[] IsPath()
     {
         int i, si;
         bool[] w;
 
         // Store unique patterns for each input
-        int[] colorindices = new int[outsize.width * outsize.height];
-        for (i = 0; i < colorindices.Length; ++i)
-            colorindices[i] = -1;
+        bool[] arePaths = new bool[outsize.width * outsize.height];
 
         for (int y = 0; y < outsize.height; ++y)
             for (int x = 0; x < outsize.width; ++x)
@@ -822,16 +805,22 @@ public class PathOverlapModel
                                     // Don't care about mask for now
                                     continue;
 
-                                if (colorindices[i] == -1)
-                                    colorindices[i] = ind;
-                                else if (colorindices[i] != ind)
-                                    throw new Exception($"Color indices are different! x={x}, y={y}");
+                                bool isPath = ind == path_idx;
+
+                                if (arePaths[i] && !isPath)
+                                {
+                                    // Ignore path
+                                    arePaths[i] = false;
+                                    Debug.LogError($"Color indices are different! x={x}, y={y}");
+                                }
+                                else
+                                    arePaths[i] = isPath;
                             }
                         }
                     }
             }
 
-        return colorindices;
+        return arePaths;
     }
 
 
