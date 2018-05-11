@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
 
@@ -31,6 +33,19 @@ public class PostProcessingController : MonoBehaviour
 
     private PostProcessingModel ppmodel = new PostProcessingModel();
 
+    // Job variables
+    JobHandle[] JobHandles;
+    NativeArray<Vector3>[] PathArrays;
+    NativeArray<int>[] PathCounts;
+    NativeArray<int> NativeObstacles;
+    bool[] HasBeenProcessed;
+
+    List<List<Vector3>> waypoint_paths;
+
+
+    // Timing variables
+    long begin, end;
+
     public void Clear()
     {
         containers.obstacles.transform.Clear();
@@ -54,27 +69,16 @@ public class PostProcessingController : MonoBehaviour
         RemoveSmallerPaths(paths);
 
         // 3. Generate vector3 lists for maps
-        var waypoint_paths = GenerateWaypointPaths(paths);
+        waypoint_paths = GenerateWaypointPaths(paths);
 
         if (attributes.SmoothPaths)
         {
-            foreach (List<Vector3> path in waypoint_paths)
-            {
-                // Simplify paths even with tolerance 0 will get rid of all points on a line and keep only the first and last point of the line
-                if (attributes.LookForObstacles) SimplifyPathsV2(path, attributes.Tolerance);
-                else SimplifyPaths(path, attributes.Tolerance);
-
-                SmoothenCorners(path, attributes.Iterations);
-            }
+            BeginSmoothingJob(waypoint_paths, attributes.Tolerance, attributes.Iterations);
+        } else
+        {
+            RenderPaths(waypoint_paths);
+            GetComponent<AgentController>().SetPaths(waypoint_paths);
         }
-        
-        
-
-        // Render paths
-        RenderLines(waypoint_paths);
-
-        // Put paths in AgentController
-        GetComponent<AgentController>().SetPaths(waypoint_paths);
 
         // 4. Focus on map
         //SceneView scene = SceneView.sceneViews[0] as SceneView;
@@ -131,149 +135,99 @@ public class PostProcessingController : MonoBehaviour
         Debug.Log($"Removed {removed} paths.");
     }
 
-    public void SimplifyPaths(List<Vector3> path, float tolerance)
+
+    void UpdateJobStatus()
     {
-        //Ramer-Douglas-Peucker for path simplification
-        List<Vector2> points = new List<Vector2>();
-        List<int> keepPoints = new List<int>();
-        foreach (Vector3 p in path)
-            points.Add(new Vector2(p.x, p.z));
+        bool allProcessed = true;
 
-        // Simplify implements Ramer-Douglas-Peucker!
-        LineUtility.Simplify(points, tolerance, keepPoints);
-
-        List<Vector3> origPath = new List<Vector3>(path);
-        path.Clear();
-        foreach (int p in keepPoints)
-            path.Add(origPath[p]);
-    }
-
-    public void SimplifyPathsV2(List<Vector3> path, float tolerance)
-    {
-        //Ramer-Douglas-Peucker for path simplification
-        HashSet<int> toRemove = new HashSet<int>();
-
-        Queue<Tuple<int, int>> lineQueue = new Queue<Tuple<int, int>>();
-        Tuple<int, int> line;
-
-        Vector2 start, end, point = start = end = Vector2.zero;
-
-        // Start with first and last point
-        lineQueue.Enqueue(new Tuple<int, int>(0, path.Count - 1));
-
-        while (lineQueue.Count > 0)
+        for (int i = 0; i < waypoint_paths.Count; ++i)
         {
-            int maxPoint = 0;
-            float dist, maxDist = -1;
-
-            line = lineQueue.Dequeue();
-
-            start.Set(path[line.Item1].x, path[line.Item1].z);
-            end.Set(path[line.Item2].x, path[line.Item2].z);
-
-            // Find furthest point from the line
-            for(int i = line.Item1 + 1; i < line.Item2; ++i)
+            if (!HasBeenProcessed[i])
             {
-                point.Set(path[i].x, path[i].z);
-                dist = PerpDist(start, end, point);
-
-                if (dist > maxDist)
+                if (JobHandles[i].IsCompleted)
                 {
-                    maxDist = dist;
-                    maxPoint = i;
+                    JobHandles[i].Complete();
+
+                    waypoint_paths[i].Clear();
+
+                    var path = waypoint_paths[i];
+                    var pathCount = PathCounts[i];
+                    var pathArray = PathArrays[i];
+
+                    // Copy back to path
+                    path.Clear();
+                    for (int j = 0; j < pathCount[0]; ++j)
+                        path.Add(pathArray[j]);
+                    pathCount.Dispose();
+                    pathArray.Dispose();
+
+                    RenderPath(path, i);
+                    HasBeenProcessed[i] = true;
                 }
-            }
-
-            // If distance is smaller than epsilon and 
-            if (maxDist <= tolerance && !CrossObstacle(start, end))
-            {
-                // Remove points between start and end
-                for (int i = line.Item1 + 1; i < line.Item2; ++i)
-                    toRemove.Add(i);
-
-            } else {
-                // Split in 2
-                lineQueue.Enqueue(new Tuple<int, int>(line.Item1, maxPoint));
-                lineQueue.Enqueue(new Tuple<int, int>(maxPoint, line.Item2));
+                else
+                    allProcessed = false;
             }
         }
 
-        // Remove all points from toRemove
-        for(int i = path.Count - 1; i >= 0; --i)
+        if (allProcessed)
         {
-            if (toRemove.Contains(i))
-                path.RemoveAt(i);
+            NativeObstacles.Dispose();
+
+            // Put paths in AgentController
+            GetComponent<AgentController>().SetPaths(waypoint_paths);
+
+            EditorApplication.update -= UpdateJobStatus;
+
+            // End timer
+            end = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            Debug.Log($"Time: {(end - begin) / 1000f} sec.");
         }
     }
 
-    private float PerpDist(Vector2 start, Vector2 end, Vector2 point)
+    public void BeginSmoothingJob(List<List<Vector3>> paths, float tolerance, int iterations)
     {
-        if (start == end)
-            // Point-to-point distance
-            return Vector2.Distance(start, point);
+        // Begin timing
+        begin = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
-        float num = (end.y - start.y) * point.x - (end.x - start.x) * point.y + (end.x * start.y) - (end.y * start.x);
-        num = Mathf.Abs(num);
+        // Create shared obstacles
+        NativeObstacles = new NativeArray<int>(obstacles.Count, Allocator.Persistent);
+        int k = 0;
+        foreach (int ob in obstacles)
+            NativeObstacles[k++] = ob;
 
-        return num / Vector2.Distance(start, end);
-    }
 
+        JobHandles = new JobHandle[paths.Count];
+        PathArrays = new NativeArray<Vector3>[paths.Count];
+        PathCounts = new NativeArray<int>[paths.Count];
+        HasBeenProcessed = new bool[paths.Count];
 
-    // Chaikin corner cutting algorithm
-    public void SmoothenCorners(List<Vector3> path, int levels)
-    {
-        bool isLoop = path.First() == path.Last();
-        if (levels == 0) return;
-
-        Vector3 qi, ri, rprev = Vector3.zero;
-
-        List<Vector3> res = new List<Vector3>(path);
-        List<Vector3> lprev = path, lcurr = res;
-
-        while(levels-- > 0)
+        for (int i = 0; i < paths.Count; ++i)
         {
-            lcurr.Clear();
-            for(int i = 0; i < lprev.Count - 1; ++i)
+            var path = paths[i];
+            var pathArray = new NativeArray<Vector3>((path.Count - 1) * (int)Math.Pow(2, iterations) + 1, Allocator.Persistent);
+            var pathCount = new NativeArray<int>(1, Allocator.Persistent) { [0] = path.Count };
+
+            for (int j = 0; j < path.Count; ++j)
+                pathArray[j] = path[j];
+
+            PathArrays[i] = pathArray;
+            PathCounts[i] = pathCount;
+
+            var job = new PathSmoothingJob()
             {
-                qi = 0.75f * lprev[i] + 0.25f * lprev[i + 1];
-                ri = 0.25f * lprev[i] + 0.75f * lprev[i + 1];
+                ImageSize = imageSize,
+                Iterations = iterations,
+                Tolerance = tolerance,
+                // Shared variables
+                Obstacles = NativeObstacles,
+                Path = pathArray,
+                PathLength = pathCount
+            };
 
-
-                // See if new lines intersect obstacles
-                if (i > 0)
-                {
-                    if (CrossObstacle(new Vector2(rprev.x, rprev.z), new Vector2(qi.x, qi.z)))
-                        // Insert old point
-                        lcurr.Add(lprev[i]);
-                }
-
-                lcurr.Add(qi);
-                lcurr.Add(ri);
-
-                rprev = ri;
-            }
-
-            // Close loop if it's a loop
-            if (isLoop)
-            {
-                if (CrossObstacle(new Vector2(rprev.x, rprev.z), new Vector2(lcurr[0].x, lcurr[0].z)))
-                    // Insert old point
-                    lcurr.Add(lprev[0]);
-
-                lcurr.Add(lcurr[0]);
-            }
-
-            // Switch between the 2 lists to prevent instantiating new lists uselessly
-            lprev = lcurr;
-            lcurr = (lcurr == res ? path : res);
+            JobHandles[i] = job.Schedule();
         }
 
-        // Put result in path
-        if (lprev != path)
-        {
-            path.Clear();
-            path.AddRange(lprev);
-        }
+        EditorApplication.update += UpdateJobStatus;
     }
 
     public void CreateObstacles()
@@ -290,14 +244,6 @@ public class PostProcessingController : MonoBehaviour
 
             var cloneObstacle = Instantiate(obstacle, containers.obstacles.transform, false);
             cloneObstacle.transform.localPosition = new Vector3(x + 0.5f, 0.5f, z + 0.5f);
-
-            // Check for neighbours
-            //int di = (z * imageSize.width) + (x - 1);
-
-            //if (obstacles.Contains(di))
-            //{
-            //    var mesh = cloneObstacle.GetComponent<MeshFilter>().sharedMesh;
-            //}
         }
     }
 
@@ -320,63 +266,30 @@ public class PostProcessingController : MonoBehaviour
         return waypoint_paths;
     }
 
-    public void RenderLines(List<List<Vector3>> waypoint_paths)
+    public void RenderPaths(List<List<Vector3>> waypoint_paths)
     {
         // Render lines
         for (int i = 0; i < waypoint_paths.Count; ++i)
-        {
-            var wp_path = waypoint_paths[i];
-            GameObject pathobj = new GameObject($"Path {i}");
-            pathobj.transform.parent = containers.paths.transform;
-            pathobj.transform.localPosition = Vector3.zero;
-
-            LineRenderer lr = pathobj.AddComponent<LineRenderer>();
-            lr.useWorldSpace = false;
-
-            lr.startWidth = lr.endWidth = 0.2f;
-            lr.numCapVertices = 1;
-            lr.material = lineMaterial;
-            lr.startColor = lr.endColor = Color.black;
-            lr.positionCount = wp_path.Count;
-            lr.SetPositions(wp_path.ToArray());
-
-            if (wp_path.Last() == wp_path.First())
-                lr.loop = true;
-        }
+            RenderPath(waypoint_paths[i], i);
     }
 
-    public void CombineMeshes()
+    public void RenderPath(List<Vector3> path, int index)
     {
-        MeshFilter[] meshes = containers.obstacles.GetComponentsInChildren<MeshFilter>(true).
-            Where(c => c.transform.parent == containers.obstacles.transform).ToArray();
+        GameObject pathobj = new GameObject($"Path {index}");
+        pathobj.transform.parent = containers.paths.transform;
+        pathobj.transform.localPosition = Vector3.zero;
 
-        CombineInstance[] combine = new CombineInstance[meshes.Length];
-        Matrix4x4 wtlParent = containers.obstacles.transform.worldToLocalMatrix;
+        LineRenderer lr = pathobj.AddComponent<LineRenderer>();
+        lr.useWorldSpace = false;
 
-        int i = 0;
-        while (i < meshes.Length)
-        {
-            combine[i].mesh = meshes[i].sharedMesh;
-            combine[i].transform = wtlParent * meshes[i].transform.localToWorldMatrix;
-            meshes[i].gameObject.SetActive(false);
-            ++i;
-        }
+        lr.widthMultiplier = 0.4f;
+        lr.numCapVertices = 1;
+        lr.material = lineMaterial;
+        lr.startColor = lr.endColor = Color.black;
+        lr.positionCount = path.Count;
+        lr.SetPositions(path.ToArray());
 
-        MeshFilter combinedMesh = containers.obstacles.GetComponent<MeshFilter>();
-        combinedMesh.sharedMesh = new Mesh();
-        combinedMesh.sharedMesh.CombineMeshes(combine, true);
-
-        MergeFaces(combinedMesh.sharedMesh);
-
-        combinedMesh.gameObject.SetActive(true);
-
-        // Remove faces that are adjacent to each other
-
+        if (path.Last() == path.First())
+            lr.loop = true;
     }
-
-    public void MergeFaces(Mesh mesh)
-    {
-        int[] oldTris = mesh.triangles;
-    }
-
 }

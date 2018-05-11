@@ -6,7 +6,6 @@ using UnityEngine.Tilemaps;
 public class PostProcessingAttributes
 {
     public bool SmoothPaths;
-    public bool LookForObstacles;
     [Range(0, 2)]
     public float Tolerance;
     [Range(0, 5)]

@@ -9,18 +9,18 @@ public class PostProcessingModel
 
     private PathOverlapModel model;
     private RectInt outsize;
-    private int[] output;
+    private bool[] isPath;
 
     // First 4 values are non diags offset. Last 4 values are diags offset
-    private static int[] DX = { -1,  0,  1,  0, -1, -1,  1,  1 };
-    private static int[] DY = {  0, -1,  0,  1, -1,  1, -1,  1 };
+    private readonly static int[] DX = { -1,  0,  1,  0, -1, -1,  1,  1 };
+    private readonly static int[] DY = {  0, -1,  0,  1, -1,  1, -1,  1 };
 
 
     public void Init(PathOverlapModel model)
     {
         this.model = model;
         this.outsize = model.GetOutputRect();
-        this.output = model.GetOutput();
+        this.isPath = model.IsPath();
     }
 
     #region Static functions
@@ -50,10 +50,10 @@ public class PostProcessingModel
 
         // At this point, we should have one color index for each position.
         // We can then look only for paths and filter out the smaller ones (or the ones that don't go around an obstacle?)
-        for (int i = 0; i < output.Length; ++i)
+        for (int i = 0; i < isPath.Length; ++i)
         {
             // Tile is not a path
-            if (output[i] != PathOverlapModel.path_idx) continue;
+            if (!isPath[i]) continue;
 
             // Path has already been processed
             if (paths.Any(p => p.Contains(i))) continue;
@@ -120,7 +120,7 @@ public class PostProcessingModel
                 }
 
 
-                if (output[ni] == PathOverlapModel.path_idx)
+                if (isPath[ni])
                 {
                     if (IsNextNeighbour(current, ni, goforward))
                     {
