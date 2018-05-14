@@ -64,7 +64,7 @@ public struct PathSmoothingJob : IJob
                 if (i > 0)
                 {
                     if (CrossObstacle(new Vector2(rprev.x, rprev.z), new Vector2(qi.x, qi.z)))
-                        // Insert old point
+                        // Insert old point 
                         lcurr.Add(lprev[i]);
                 }
 
@@ -82,6 +82,11 @@ public struct PathSmoothingJob : IJob
                     lcurr.Add(lprev[0]);
 
                 lcurr.Add(lcurr[0]);
+            } else
+            {
+                // We need to add both endpoints to prevent line segment from shrinking
+                lcurr.Add(lprev[lprev.Count - 1]);
+                lcurr.Insert(0, lprev[0]);
             }
 
             // Switch between the 2 lists to prevent instantiating new lists uselessly
