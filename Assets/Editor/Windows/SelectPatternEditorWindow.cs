@@ -52,10 +52,11 @@ public class SelectPatternEditorWindow : EditorWindow
 
         else
         {
-            float patternPerLine = (int)(position.width / (margin + patternSize));
-            int actualHeight = margin + (int)Math.Floor(patterns.Count / patternPerLine) * (buttonHeight + patternSize + margin);
+            float patternPerLine = (int)Math.Floor(position.width / (margin + patternSize));
+            int actualHeight = margin + (int)Math.Ceiling(patterns.Count / patternPerLine) * (buttonHeight + patternSize + margin);
 
-            scrollPos = GUI.BeginScrollView(new Rect(0, 0, position.width, position.height), scrollPos, new Rect(0, 0, position.width - 15, actualHeight));
+            scrollPos = GUI.BeginScrollView(
+                new Rect(0, 0, position.width, position.height), scrollPos, new Rect(0, 0, position.width - 15, actualHeight));
             int x = margin, y = margin;
 
             foreach (KeyValuePair<int, Texture2D> p in patterns)
