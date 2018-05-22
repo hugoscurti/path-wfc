@@ -72,8 +72,6 @@ public class AgentController : MonoBehaviour
 
     public void AgentUpdate()
     {
-        // Debug.Log(Time.deltaTime);
-
         Vector3 direction;
         float distance;
 
@@ -93,9 +91,6 @@ public class AgentController : MonoBehaviour
             // If arrived at destination
             if (currentAgent.transform.localPosition == currentTarget.Current)
             {
-                // Resolve any misdirection due to floating error
-                //currentAgent.transform.localPosition = currentTarget.Current;
-
                 if (!GetNextDestination())
                 {
                     EditorApplication.update -= AgentUpdate;

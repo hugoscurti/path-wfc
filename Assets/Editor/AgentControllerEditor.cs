@@ -25,7 +25,6 @@ public class AgentControllerEditor : Editor
             // Button to set agent on path
             if (GUILayout.Button("Set agent"))
             {
-                // TODO: Set agent on path
                 ctrl.EnableAgent();
             }
         } else
