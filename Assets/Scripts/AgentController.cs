@@ -13,9 +13,7 @@ public class AgentController : MonoBehaviour
     public GameObject map;
 
     private List<List<Vector3>> paths;
-
-    private string[] _pathIndices = null;
-    public string[] PathIndices { get { return _pathIndices; } }
+    public string[] PathIndices { get; private set; } = null;
 
     [HideInInspector]
     public int selectedPath;
@@ -28,7 +26,7 @@ public class AgentController : MonoBehaviour
     public void ClearPaths()
     {
         paths = null;
-        _pathIndices = null;
+        PathIndices = null;
         currentPath = null;
         EditorApplication.update -= AgentUpdate;
         if (currentAgent != null)
@@ -39,10 +37,10 @@ public class AgentController : MonoBehaviour
     {
         this.paths = paths;
 
-        _pathIndices = Enumerable.Range(0, paths.Count).
+        PathIndices = Enumerable.Range(0, paths.Count).
             Select(i => i.ToString()).ToArray();
 
-        if (_pathIndices.Length > 0)
+        if (PathIndices.Length > 0)
             selectedPath = 0;
     }
 
@@ -69,6 +67,7 @@ public class AgentController : MonoBehaviour
         // Start moving the agent
         EditorApplication.update += AgentUpdate;
     }
+
 
     public void AgentUpdate()
     {

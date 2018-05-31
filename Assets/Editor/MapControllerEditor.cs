@@ -15,17 +15,13 @@ public class MapControllerEditor : Editor {
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
+        var src = target as MapController;
 
         if (GUILayout.Button("Load Maps"))
-        {
-            var src = target as MapController;
             src.LoadMaps();
-        }
 
         if (GUILayout.Button("Clear"))
-        {
-            (target as MapController).ClearMaps();
-        }
+            src.ClearMaps();
     }
 
     private string GetBaseMapDataDirectory(string lastFolder)
