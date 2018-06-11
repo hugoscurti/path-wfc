@@ -1,8 +1,14 @@
-﻿using System;
+﻿/*
+The MIT License(MIT)
+Copyright(c) mxgmn 2016.
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.
+*/
+
+using System;
 using System.ComponentModel;
 using System.Linq;
-using UnityEngine;
-using UnityEngine.Tilemaps;
 
 namespace Utilities
 {
@@ -34,38 +40,6 @@ namespace Utilities
             }
 
             return 0;
-        }
-
-        public static void SafeInvoke<t>(this t isi, Action<t> call) where t : ISynchronizeInvoke
-        {
-            if (isi.InvokeRequired) isi.BeginInvoke(call, new object[] { isi });
-            else
-                call(isi);
-        }
-    }
-
-    public static class TilemapUtils
-    {
-        public static RectInt GetBounds(this Tilemap tilemap)
-        {
-            return new RectInt(0, 0, tilemap.cellBounds.size.x, tilemap.cellBounds.size.y);
-        }
-    }
-
-    public static class ArrayUtils
-    {
-        public static void ForEach<T>(this T[,] array, Action<T, int, int> action)
-        {
-            for (int x = 0; x < array.GetLength(0); ++x)
-                for (int y = 0; y < array.GetLength(1); ++y)
-                    action(array[x, y], x, y);
-        }
-
-        public static void ForEach<T>(this T[,] array, Action<int, int> action)
-        {
-            for (int x = 0; x < array.GetLength(0); ++x)
-                for (int y = 0; y < array.GetLength(1); ++y)
-                    action(x, y);
         }
     }
 }

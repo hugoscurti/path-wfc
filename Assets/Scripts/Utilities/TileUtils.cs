@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Tilemaps;
 
 public static class TileUtils
@@ -26,5 +23,10 @@ public static class TileUtils
 
                 target.SetTile(new Vector3Int(x, y, 0), tile);
             }
+    }
+
+    public static RectInt GetBounds(this Tilemap tilemap)
+    {
+        return new RectInt(0, 0, tilemap.cellBounds.size.x, tilemap.cellBounds.size.y);
     }
 }
