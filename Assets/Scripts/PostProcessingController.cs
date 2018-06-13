@@ -11,6 +11,8 @@ using Utilities;
 
 public class PostProcessingController : MonoBehaviour
 {
+    public PathOverlapController pathOverlapController;
+
     [Serializable]
     public struct Containers
     {
@@ -24,7 +26,6 @@ public class PostProcessingController : MonoBehaviour
 
     // Prefabs
     public GameObject obstacle;
-    public PathOverlapController pathOverlapController;
 
     public Material lineMaterial;
 
@@ -50,6 +51,7 @@ public class PostProcessingController : MonoBehaviour
     {
         containers.obstacles.transform.Clear();
         containers.paths.transform.Clear();
+        containers.map.transform.localScale = Vector3.zero;
         GetComponent<AgentController>().ClearPaths();
     }
 

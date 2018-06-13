@@ -14,9 +14,7 @@ public class PathOverlapController : MonoBehaviour {
 
     // Internal variables
     Thread _thread;
-
-    State _runstate;
-    public State RunState { get { return _runstate; } }
+    public State RunState { get; private set; }
 
     float lastUpdate = 0f;
     bool? workDone;
@@ -24,9 +22,10 @@ public class PathOverlapController : MonoBehaviour {
     bool stepByStep;
 
     private PathOverlapModel model;
-    int N = 3;
+    private readonly int N = 3;
 
     // Inspector variables
+    public MapController mapController;
 
     public PathOverlapAttributes ModelAttributes;
 
@@ -40,7 +39,7 @@ public class PathOverlapController : MonoBehaviour {
 
     public void Cancel()
     {
-        _runstate = State.Stopped;
+        RunState = State.Stopped;
         status = "Stopped";
         if (_thread != null) _thread.Abort();
 
@@ -49,12 +48,12 @@ public class PathOverlapController : MonoBehaviour {
 
     public void Pause()
     {
-        _runstate = State.Paused;
+        RunState = State.Paused;
     }
 
     public void ResetOutput()
     {
-        _runstate = State.Stopped;
+        RunState = State.Stopped;
         status = "Stopped";
         if (_thread != null) _thread.Abort();
 
@@ -65,10 +64,9 @@ public class PathOverlapController : MonoBehaviour {
     public void InstantiateModel()
     {
         // Prepare variables for thread
-        MapController mapLoader = GetComponent<MapController>();
-        mapLoader.ResetOutput();
+        mapController.ResetOutput();
 
-        model = new PathOverlapModel(mapLoader.inputTarget, mapLoader.outputTarget, N, ModelAttributes);
+        model = new PathOverlapModel(mapController.inputTarget, mapController.outputTarget, N, ModelAttributes);
 
         InitModel(true);
     }
@@ -130,13 +128,13 @@ public class PathOverlapController : MonoBehaviour {
 
                 lastUpdate = Time.realtimeSinceStartup;
 
-                if (_runstate != State.Running)
+                if (RunState != State.Running)
                     // Unregister event
                     EditorApplication.update -= EditorUpdate;
             }
         } else
         {
-            if (_runstate != State.Running)
+            if (RunState != State.Running)
             {
                 // Wait for thread to finish?
                 _thread.Join();
@@ -160,7 +158,7 @@ public class PathOverlapController : MonoBehaviour {
 
     private void Execute()
     {
-        _runstate = State.Running;
+        RunState = State.Running;
         status = "Running";
 
         // Begin timing
@@ -170,22 +168,22 @@ public class PathOverlapController : MonoBehaviour {
             firstPropagate();
 
         workDone = null;
-        while (_runstate == State.Running && workDone == null)
+        while (RunState == State.Running && workDone == null)
         {
             model.Propagate();
             workDone = model.Observe();
 
             if (stepByStep)
-                _runstate = State.Paused;
+                RunState = State.Paused;
         }
 
         if (!workDone.HasValue)
         {
-            status = _runstate == State.Stopped ? "Cancelled" : "Paused";
+            status = RunState == State.Stopped ? "Cancelled" : "Paused";
         } else
         {
             // Algorithm has finished, we put in stopped state
-            _runstate = State.Stopped;
+            RunState = State.Stopped;
 
             if (workDone.Value)
                 status = "Sucessful";
@@ -201,9 +199,9 @@ public class PathOverlapController : MonoBehaviour {
 
     private void OnDisable()
     {
-        if (_runstate == State.Running)
+        if (RunState == State.Running)
         {
-            _runstate = State.Stopped;
+            RunState = State.Stopped;
             _thread.Join();
         }
     }
