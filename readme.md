@@ -1,6 +1,6 @@
 # Generating Paths with WFC
 
-This project is a port of the [WFC algorithm](https://github.com/mxgmn/WaveFunctionCollapse). The goal is to generate cyclic paths around obstacles on game levels, using a modified version of the WFC algorithm.
+This project is a port of the [WFC algorithm](https://github.com/mxgmn/WaveFunctionCollapse) implemented in Unity. The goal is to generate cyclic paths around obstacles on game levels, using a modified version of the WFC algorithm.
 
 - - -
 
