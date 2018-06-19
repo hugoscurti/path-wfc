@@ -67,13 +67,14 @@ public class PostProcessingController : MonoBehaviour
 
         InitalizeMap();
 
-        // Remove smaller paths
-        RemoveSmallerPaths(paths);
+        if (attributes.ApplyPostProcessing)
+            // Remove smaller paths
+            RemoveSmallerPaths(paths);
 
         // 3. Generate vector3 lists for maps
         waypoint_paths = GenerateWaypointPaths(paths);
 
-        if (attributes.SmoothPaths)
+        if (attributes.ApplyPostProcessing)
         {
             BeginSmoothingJob(waypoint_paths, attributes.Tolerance, attributes.Iterations);
         } else
@@ -278,8 +279,10 @@ public class PostProcessingController : MonoBehaviour
     public void RenderPath(List<Vector3> path, int index)
     {
         GameObject pathobj = new GameObject($"Path {index}");
+
         pathobj.transform.parent = containers.paths.transform;
         pathobj.transform.localPosition = Vector3.zero;
+        pathobj.transform.localRotation = Quaternion.identity;
 
         LineRenderer lr = pathobj.AddComponent<LineRenderer>();
         lr.useWorldSpace = false;

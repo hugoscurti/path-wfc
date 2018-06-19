@@ -155,10 +155,12 @@ public class Map
                     case '@':
                     case 'O':
                     case 'T':
+                    case 'W':
                         map.grid[x, y] = TileType.Obstacle;
                         break;
                     case '.':
                     case 'G':
+                    case 'S':
                         map.grid[x, y] = TileType.Freespace;
                         break;
                     default:

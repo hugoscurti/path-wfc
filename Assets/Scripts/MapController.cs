@@ -49,6 +49,8 @@ public class MapController : MonoBehaviour {
         //Manually destroy tiles
         DestroyTiles(inputTarget);
         DestroyTiles(outputTarget);
+        // Reset background as well
+        Background.size = Vector2.zero;
 
         EditorUtility.UnloadUnusedAssetsImmediate();
     }
