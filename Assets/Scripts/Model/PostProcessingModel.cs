@@ -94,6 +94,7 @@ public class PostProcessingModel
 
     private void ProcessPath(LinkedListNode<int> first, LinkedListNode<int> current, int x, int y, bool goforward)
     {
+        // TODO: Handle crossing path
         bool neighbourset;
         int nx, ny, ni;
 
@@ -102,6 +103,7 @@ public class PostProcessingModel
             neighbourset = false;
             for (int d = 0; d < 8; ++d)
             {
+                // 1. Get offset position
                 nx = x + DX[d];
                 ny = y + DY[d];
                 ni = ny * outsize.width + nx;
@@ -120,6 +122,7 @@ public class PostProcessingModel
                 }
 
 
+                // 2. Determine if it's the next segment in the current path
                 if (isPath[ni])
                 {
                     if (IsNextNeighbour(current, ni, goforward))
