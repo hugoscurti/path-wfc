@@ -63,30 +63,28 @@ public class PathOverlapController : MonoBehaviour {
     // Call this when the maps are loaded
     public void InstantiateModel()
     {
+        if (model == null) model = new PathOverlapModel();
+
         // Prepare variables for thread
         mapController.ResetOutput();
 
-        model = new PathOverlapModel(mapController.inputTarget, mapController.outputTarget, N, ModelAttributes);
+        model.Init(mapController.inputTarget, mapController.outputTarget, N, ModelAttributes);
 
         InitModel(true);
     }
 
-    private void firstPropagate()
+    public void FirstPropagate(bool print)
     {
         model.Propagate();
         firstPropagateDone = true;
-    }
 
-    public void FirstPropagate()
-    {
-        firstPropagate();
-        model.Print();
+        if (print) model.Print();
     }
 
     private void InitModel(bool print)
     {
         seed = execution.UseFixedSeed ? execution.Seed : (int)Time.realtimeSinceStartup;
-        model.Init(seed);
+        model.Reset(seed);
 
         if (print)
             model.Print();
@@ -165,7 +163,7 @@ public class PathOverlapController : MonoBehaviour {
         long begin = System.DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
         if (!firstPropagateDone)
-            firstPropagate();
+            FirstPropagate(false);
 
         workDone = null;
         while (RunState == State.Running && workDone == null)

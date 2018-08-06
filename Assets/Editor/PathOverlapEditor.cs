@@ -22,7 +22,7 @@ public class PathOverlapEditor : Editor
 
         if (GUILayout.Button("First Propagate"))
         {
-            src.FirstPropagate();
+            src.FirstPropagate(true);
         }
         GUILayout.EndHorizontal();
 

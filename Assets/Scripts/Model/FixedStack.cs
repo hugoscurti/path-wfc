@@ -5,7 +5,7 @@ using System.Text;
 
 public class FixedStack<T>
 {
-    T[] stack;
+    private readonly T[] stack;
 
     // This represents the size of the stack and the next index on which to stack up
     int size;
@@ -35,5 +35,10 @@ public class FixedStack<T>
     public bool IsEmpty()
     {
         return size == 0;
+    }
+
+    public int Size()
+    {
+        return size;
     }
 }

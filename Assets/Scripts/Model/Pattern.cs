@@ -14,6 +14,8 @@ public class Pattern
     public static Mask layer1;
     public static Mask layer2;
 
+    private static List<int> overlaps = new List<int>(256);
+
     #region Constructor
 
     public Pattern(int N, int x, int y, byte[] colorIndices, RectInt size)
@@ -167,13 +169,11 @@ public class Pattern
 
     /// <summary>
     /// Returns the list of indices that overlaps with
-    /// the current pattern
+    /// the current pattern. Store result in propagator array
     /// </summary>
-    /// <param name="ps"></param>
-    /// <returns></returns>
-    public List<int> Overlap(Pattern[] ps, int dx, int dy)
+    public void Overlap(Pattern[] ps, int dx, int dy, out int[] propagator)
     {
-        List<int> overlaps = new List<int>();
+        overlaps.Clear();
 
         for (int t = 0; t < ps.Length; ++t)
         {
@@ -181,7 +181,9 @@ public class Pattern
                 overlaps.Add(t);
         }
 
-        return overlaps;
+        propagator = new int[overlaps.Count];
+        for (int i = 0; i < overlaps.Count; ++i)
+            propagator[i] = overlaps[i];
     }
 
     /// <summary>
