@@ -26,6 +26,8 @@ public class MapController : MonoBehaviour {
 
     public void LoadMaps()
     {
+        ClearMaps();
+
         Texture2D input_src = Map.LoadMap(inputSelector.GetFile(), INPUT_FOLDER);
         LoadMap(inputTarget, input_src);
 
@@ -35,12 +37,10 @@ public class MapController : MonoBehaviour {
         // Set background alpha to be the same size as the output
         Background.size = new Vector2(output.width, output.height);
         Background.transform.localPosition = new Vector3(output.width/2f, output.height/2f, Background.transform.localPosition.z);
-
     }
 
     public void LoadMap(Tilemap target, Texture2D source)
     {
-        target.ClearAllTiles();
         TileUtils.PaintTexture(source, target);
     }
 
@@ -52,25 +52,29 @@ public class MapController : MonoBehaviour {
         // Reset background as well
         Background.size = Vector2.zero;
 
-        EditorUtility.UnloadUnusedAssetsImmediate();
+        TileUtils.ResetTilePool();
+        GC.Collect();
     }
 
     public void DestroyTiles(Tilemap target)
     {
-        TileBase[] tiles = target.GetTilesBlock(target.cellBounds);
-        target.ClearAllTiles();
+        Vector3Int pos = Vector3Int.zero;
+        var bounds = target.cellBounds;
 
-        for(int i = 0; i < tiles.Length; ++i)
-        {
-            DestroyImmediate(tiles[i]); // when in editor, we call destroyimmediate
-            tiles[i] = null;
-        }
+        for (int x = 0; x < bounds.xMax; ++x)
+            for (int y = 0; y < bounds.yMax; ++y)
+            {
+                pos.Set(x, y, 0);
+                target.SetTile(pos, null);
+            }
+
+        // Clear all tiles at the end
+        target.ClearAllTiles();
     }
     
 
     public void ResetOutput()
     {
-        DestroyTiles(outputTarget);
         TileUtils.PaintTexture(output, outputTarget);
     }
 }
