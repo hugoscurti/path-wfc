@@ -7,7 +7,6 @@ using UnityEngine.Tilemaps;
 
 public class SelectPatternEditorWindow : EditorWindow
 {
-    //private Tilemap target;
     private PathOverlapModel model;
     private Vector2Int tilepos;
 
@@ -15,9 +14,9 @@ public class SelectPatternEditorWindow : EditorWindow
     bool updateDict = false;
 
     // Pattern info
-    int patternSize = 50;
-    int margin = 15;
-    int buttonHeight = 15;
+    readonly int patternSize = 50;
+    readonly int margin = 15;
+    readonly int buttonHeight = 15;
 
     // Scrollable
     Vector2 scrollPos;
@@ -25,16 +24,11 @@ public class SelectPatternEditorWindow : EditorWindow
     [MenuItem("Window/Select Pattern")]
     static void ShowWindow()
     {
-        var window = GetWindow<SelectPatternEditorWindow>();
-
-        //window.position = new Rect(50, 50, 50, 50);
-        //window.minSize = new Vector2(100, 100);
-        window.Show();
+        GetWindow<SelectPatternEditorWindow>();
     }
 
-    public void Init(Tilemap target, PathOverlapModel model, Vector2Int tilepos)
+    public void Init(PathOverlapModel model, Vector2Int tilepos)
     {
-        //this.target = target;
         this.model = model;
         this.tilepos = tilepos;
 
@@ -48,7 +42,7 @@ public class SelectPatternEditorWindow : EditorWindow
             EditorGUI.LabelField(new Rect(10, 10, 100, 15), new GUIContent("No model loaded..."));
 
         else if (patterns.Count == 0)
-            EditorGUI.LabelField(new Rect(10, 10, 100, 15), new GUIContent("No patterns available :("));
+            EditorGUI.LabelField(new Rect(10, 10, 100, 15), new GUIContent("No patterns available."));
 
         else
         {

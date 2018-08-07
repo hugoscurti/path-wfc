@@ -24,7 +24,6 @@ public class TilemapEditor : Editor
 
             if (Event.current.type == EventType.MouseUp && mouseDown)
             {
-                //Debug.Log("Mouse clicked!");
                 OnClick();
             }
         }
@@ -41,12 +40,9 @@ public class TilemapEditor : Editor
 
         if (cellPos.x >= 0 && cellPos.y >= 0)
         {
-            // Select Corresponding tile
-            //Debug.Log($"Cell {cellPos.x},{cellPos.y}");
-
             // Open window to select pattern
             SelectPatternEditorWindow window = EditorWindow.GetWindow<SelectPatternEditorWindow>();
-            window.Init(src, src.GetComponentInParent<PathOverlapController>().GetModel(), new Vector2Int(cellPos.x, cellPos.y));
+            window.Init(src.GetComponentInParent<PathOverlapController>().GetModel(), new Vector2Int(cellPos.x, cellPos.y));
             window.Show();
         }
 
