@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
-[CustomEditor(typeof(Tilemap))]
-public class TilemapEditor : Editor
+[CustomEditor(typeof(SpriteRenderer))]
+public class TextureEditor : Editor
 {
     bool mouseDown;
 
@@ -32,19 +29,23 @@ public class TilemapEditor : Editor
 
     private void OnClick()
     {
-        Tilemap src = target as Tilemap;
+        SpriteRenderer src = target as SpriteRenderer;
 
         Ray worldRay = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
 
-        Vector3Int cellPos = src.WorldToCell(worldRay.origin);
+        //todo: Make it work with Texture2d
+        
 
-        if (cellPos.x >= 0 && cellPos.y >= 0)
-        {
-            // Open window to select pattern
-            SelectPatternEditorWindow window = EditorWindow.GetWindow<SelectPatternEditorWindow>();
-            window.Init(src.GetComponentInParent<PathOverlapController>().GetModel(), new Vector2Int(cellPos.x, cellPos.y));
-            window.Show();
-        }
+        //if (cellPos.x >= 0 && cellPos.y >= 0)
+        //{
+        //    // Open window to select pattern
+        //    SelectPatternEditorWindow window = EditorWindow.GetWindow<SelectPatternEditorWindow>();
+        //    window.Init(
+        //        src.GetComponentInParent<PathOverlapController>().GetModel(), 
+        //        new Vector2Int(cellPos.x, cellPos.y),
+        //        src.sprite.texture
+        //        );
+        //}
 
         
     }

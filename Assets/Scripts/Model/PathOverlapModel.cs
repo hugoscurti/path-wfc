@@ -16,36 +16,38 @@ using Utilities;
 
 public class PathOverlapModel
 {
-    int N;  //Edge size of pattern
-    int T;  //Total number of unique patterns
-    int C;  //Color counts
-
-    readonly Color failedColor = Color.yellow;
-
-    Tilemap input, output;
-
-    RectInt outsize;
-    RectInt insize;
-
-    List<Color> colors;
+    #region Static members
 
     // We define only three colors
     public static Color freespace = Color.white,
         obstacle = new Color(165f / 255, 42f / 255, 42f / 255),
-        path = Color.black;
+        path = Color.black,
+        failedColor = Color.yellow;
+
+    // Lists of offsets
+    static readonly int[] DX = { -1, 0, 1, 0 };
+    static readonly int[] DY = { 0, 1, 0, -1 };
+    static readonly int[] opposite = { 2, 3, 0, 1 };
 
     // Index associated with colors
     public static int obstacle_idx = -1,
         freespace_idx = -1,
         path_idx = -1;
 
+    #endregion
+
+    int N;  //Edge size of pattern
+    int T;  //Total number of unique patterns
+    int C;  //Color counts
+
+
+    Size insize;
+    Size outsize;
+
+    List<Color32> colors;    
+
     Mask bufferMask,
         masks;
-
-    // Lists of offsets
-    static readonly int[] DX = { -1, 0, 1, 0 };
-    static readonly int[] DY = { 0, 1, 0, -1 };
-    static readonly int[] opposite = { 2, 3, 0, 1 };
 
     Pattern[] patterns;
     HashSet<int> maskPatterns;
@@ -87,7 +89,7 @@ public class PathOverlapModel
         Pattern.mask_idx_l1 = 0;
         Pattern.mask_idx_l2 = 1;
 
-        colors = new List<Color>(30);
+        colors = new List<Color32>(30);
         propagator = new int[4][][];
         maskPatterns = new HashSet<int>();
         boundaries = new HashSet<int>();
@@ -110,36 +112,6 @@ public class PathOverlapModel
         obstacle_idx = colors.IndexOf(obstacle);
         freespace_idx = colors.IndexOf(freespace);
         path_idx = colors.IndexOf(path);
-    }
-
-    /// <summary>
-    /// Convert color into indices.
-    /// Since we know exactly the expected color, we can hard-code the color indices
-    /// and look for them.
-    /// </summary>
-    private byte[] IndexColours(Tilemap source, RectInt size)
-    {
-        Color c;
-        int idx;
-
-        byte[] indices = new byte[size.width * size.height];
-        Vector3Int vi = Vector3Int.zero;
-
-        for (vi.y = 0; vi.y < size.height; ++vi.y)
-            for (vi.x = 0; vi.x < size.width; ++vi.x)
-            {
-                c = source.GetColor(vi);
-                idx = colors.IndexOf(c);
-                if (idx == -1)
-                {
-                    idx = colors.Count;
-                    colors.Add(c);
-                }
-
-                indices[vi.y * size.width + vi.x] = (byte)idx;
-            }
-
-        return indices;
     }
 
 
@@ -212,7 +184,7 @@ public class PathOverlapModel
     }
 
 
-    private void _ExtractPattern(bool periodic, RectInt size, byte[] indices, bool addCount, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
+    private void _ExtractPattern(bool periodic, Size size, byte[] indices, bool addCount, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
     {
         Pattern p;
         for (int y = 0; y < (periodic ? size.height : size.height - N + 1); ++y)
@@ -242,7 +214,7 @@ public class PathOverlapModel
             }
     }
 
-    private void _ExtractMaskPatterns(RectInt size, byte[] indices, byte maskColorIdx, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
+    private void _ExtractMaskPatterns(Size size, byte[] indices, byte maskColorIdx, Dictionary<long, int> counts, Dictionary<long, Pattern> dict)
     {
         // Extract patterns
         Pattern p;
@@ -267,24 +239,30 @@ public class PathOverlapModel
 
     #region Initialization
 
-    public void Init(Tilemap input, Tilemap output, int N, PathOverlapAttributes attributes)
+    public void Init(Texture2D inputTex, Texture2D outputTex, int N, PathOverlapAttributes attributes)
     {
         this.N = N;
-        this.input = input;
-        this.output = output;
         this.attributes = attributes;
 
         // We use outsize to get the size of the bitmap image to prevent issues when accessing bitmap images across multiple threads
-        this.insize = this.input.GetBounds();
-        this.outsize = this.output.GetBounds();
+        insize = new Size()
+        {
+            width = inputTex.width,
+            height = inputTex.height
+        };
+
+        outsize = new Size() {
+            width = outputTex.width,
+            height = outputTex.height
+        };
 
         colors.Clear();
         // First 2 colors represent mask colors
         colors.Add(Color.clear);
         colors.Add(Color.clear);
 
-        byte[] indices = IndexColours(input, insize);
-        output_idx = IndexColours(output, outsize);
+        byte[] indices = TileUtils.IndexColours(inputTex.GetPixels32(), colors);
+        output_idx = TileUtils.IndexColours(outputTex.GetPixels32(), colors);
 
         FillSpecialColorIndices();
 
@@ -786,7 +764,7 @@ public class PathOverlapModel
     /// <summary>
     /// Returns the size of the output map
     /// </summary>
-    public RectInt GetOutputRect()
+    public Size GetOutputRect()
     {
         return outsize;
     }
@@ -852,26 +830,28 @@ public class PathOverlapModel
     /// Print in the array of tiles 
     /// </summary>
     /// <param name="tiles"></param>
-    public void Print()
+    public void Print(Texture2D output)
     {
         bool[] w;
         int i;
 
         // Use this to store result
-        Vector3Int p = new Vector3Int();
+        Color32[] raw_output = output.GetPixels32();
 
-        for (p.y = 0; p.y < outsize.height; ++p.y)
-            for (p.x = 0; p.x < outsize.width; ++p.x)
+        int x, y;
+
+        for (y = 0; y < outsize.height; ++y)
+            for (x = 0; x < outsize.width; ++x)
             {
-                float contributors = 0, alpha_contrib = 0, r = 0, g = 0, b = 0, a = 0;
+                int contributors = 0, alpha_contrib = 0, r = 0, g = 0, b = 0, a = 0;
 
                 for (int dy = 0; dy < N; ++dy)
                     for (int dx = 0; dx < N; ++dx)
                     {
-                        int sx = p.x - dx;
+                        int sx = x - dx;
                         if (sx < 0) sx += outsize.width;
 
-                        int sy = p.y - dy;
+                        int sy = y - dy;
                         if (sy < 0) sy += outsize.height;
 
                         if (OnBoundary(sx, sy)) continue;
@@ -882,12 +862,12 @@ public class PathOverlapModel
                         {
                             if (w[t])
                             {
-                                Color c = colors[patterns[t].Get(dx, dy)];
+                                Color32 c = colors[patterns[t].Get(dx, dy)];
 
                                 alpha_contrib++;
                                 a += c.a;
 
-                                if (c != Color.clear)
+                                if (c.a != 0)
                                 {
                                     contributors++;
                                     r += c.r;
@@ -900,18 +880,19 @@ public class PathOverlapModel
 
                 if (alpha_contrib != 0)
                 {
-                    Color newCol = new Color(r / contributors, g / contributors, b / contributors, a / alpha_contrib);
-
-                    // An attempt at changing only the relevant tiles (i.e. change it only if the color is different)
-                    if (output.GetColor(p) != newCol)
-                    {
-                        output.SetColor(p, newCol);
-                    }
+                    if (contributors == 0)
+                        // Only transparent contributors
+                        raw_output[y * outsize.width + x] = new Color32(0, 0, 0, 0);
+                    else
+                        raw_output[y * outsize.width + x] = new Color32((byte)(r / contributors), (byte)(g / contributors), (byte)(b / contributors), (byte)(a / alpha_contrib));
                 } else
                 {
-                    output.SetColor(p, failedColor);
+                    raw_output[y * outsize.width + x] = failedColor;
                 }
             }
+
+        output.SetPixels32(raw_output);
+        output.Apply();
     }
 
     /// <summary>

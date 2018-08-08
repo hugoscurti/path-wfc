@@ -8,7 +8,7 @@ public class PostProcessingModel
 {
 
     private PathOverlapModel model;
-    private RectInt outsize;
+    private Size outsize;
     private bool[] isPath;
 
     // First 4 values are non diags offset. Last 4 values are diags offset

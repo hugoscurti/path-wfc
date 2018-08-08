@@ -12,48 +12,53 @@ public class MapController : MonoBehaviour {
     public const string INPUT_FOLDER = "MapData/input";
     public const string OUTPUT_FOLDER = "MapData/output";
 
-    public Tilemap inputTarget;
+    public SpriteRenderer inputTarget;
+    private Texture2D inputTex;
     [MapIterator("Resources/" + INPUT_FOLDER)]
     public MapSelector inputSelector = new MapSelector();
 
-    public Tilemap outputTarget;
+    public SpriteRenderer outputTarget;
+    private Texture2D outputTex;
     [MapIterator("Resources/" + OUTPUT_FOLDER)]
     public MapSelector outputSelector = new MapSelector();
 
     public SpriteRenderer Background;
 
-    private Texture2D output;
+    private Color[] outputPixels;
 
     public void LoadMaps()
     {
         ClearMaps();
 
-        Texture2D input_src = Map.LoadMap(inputSelector.GetFile(), INPUT_FOLDER);
-        LoadMap(inputTarget, input_src);
+        inputTex = Map.LoadMap(inputSelector.GetFile(), INPUT_FOLDER);
+        LoadSprite(inputTarget, inputTex);
 
-        this.output = Map.LoadMap(outputSelector.GetFile(), OUTPUT_FOLDER);
-        LoadMap(outputTarget, this.output);
+        outputTex = Map.LoadMap(outputSelector.GetFile(), OUTPUT_FOLDER);
+        outputPixels = outputTex.GetPixels();  // Store initial output value
+        LoadSprite(outputTarget, outputTex);
 
         // Set background alpha to be the same size as the output
-        Background.size = new Vector2(output.width, output.height);
-        Background.transform.localPosition = new Vector3(output.width/2f, output.height/2f, Background.transform.localPosition.z);
+        Background.size = new Vector2(outputTex.width, outputTex.height);
+        Background.transform.localPosition = new Vector3(0, 0, Background.transform.localPosition.z);
     }
 
-    public void LoadMap(Tilemap target, Texture2D source)
+    public void LoadSprite(SpriteRenderer renderer, Texture2D texture)
     {
-        TileUtils.PaintTexture(source, target);
+        renderer.sprite = Sprite.Create(texture, new Rect(.0f, .0f, texture.width, texture.height), new Vector2(.5f, .5f), 1f);
     }
 
     public void ClearMaps()
     {
-        //Manually destroy tiles
-        DestroyTiles(inputTarget);
-        DestroyTiles(outputTarget);
+        inputTarget.sprite = null;
+        outputTarget.sprite = null;
+        DestroyImmediate(inputTex);
+        DestroyImmediate(outputTex);
+
         // Reset background as well
         Background.size = Vector2.zero;
 
-        TileUtils.ResetTilePool();
-        GC.Collect();
+        // Unload assets just in case
+        Resources.UnloadUnusedAssets();
     }
 
     public void DestroyTiles(Tilemap target)
@@ -75,6 +80,7 @@ public class MapController : MonoBehaviour {
 
     public void ResetOutput()
     {
-        TileUtils.PaintTexture(output, outputTarget);
+        outputTex.SetPixels(outputPixels);
+        outputTex.Apply();
     }
 }

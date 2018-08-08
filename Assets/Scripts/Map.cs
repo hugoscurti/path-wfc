@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
 public enum TileType
@@ -22,7 +18,13 @@ public class Map
 
     public Texture2D ToTexture()
     {
-        Texture2D res = new Texture2D(Width, Height);
+        Texture2D res = new Texture2D(Width, Height)
+        {
+            filterMode = FilterMode.Point,
+            anisoLevel = 1,
+            alphaIsTransparency = true
+        };
+
         Color c;
 
         for (int x = 0; x < Width; ++x)
@@ -45,6 +47,8 @@ public class Map
 
                 res.SetPixel(x, y, c);
             }
+
+        res.Apply();
         return res;
     }
     
@@ -60,7 +64,10 @@ public class Map
             string resourcePath = Path.Combine(ResourceDirectory,
                 file.Name.Remove(file.Name.LastIndexOf(file.Extension), file.Extension.Length));
 
-            return Resources.Load<Texture2D>(resourcePath);
+            var tex = Resources.Load<Texture2D>(resourcePath);
+            var returnedVal = GameObject.Instantiate(tex);
+            Resources.UnloadAsset(tex);
+            return returnedVal;
         }
         else if (file.Extension == ".map")
         {

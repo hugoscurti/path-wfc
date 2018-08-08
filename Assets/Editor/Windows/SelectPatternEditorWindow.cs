@@ -9,6 +9,7 @@ public class SelectPatternEditorWindow : EditorWindow
 {
     private PathOverlapModel model;
     private Vector2Int tilepos;
+    private Texture2D texture;
 
     Dictionary<int, Texture2D> patterns;
     bool updateDict = false;
@@ -27,10 +28,11 @@ public class SelectPatternEditorWindow : EditorWindow
         GetWindow<SelectPatternEditorWindow>();
     }
 
-    public void Init(PathOverlapModel model, Vector2Int tilepos)
+    public void Init(PathOverlapModel model, Vector2Int tilepos, Texture2D texture)
     {
         this.model = model;
         this.tilepos = tilepos;
+        this.texture = texture;
 
         if (model != null)
             patterns = this.model.GetPatternsForWave(this.tilepos);
@@ -59,7 +61,7 @@ public class SelectPatternEditorWindow : EditorWindow
                 {
                     // Fix selected wave
                     model.FixWave(tilepos, p.Key);
-                    model.Print();
+                    model.Print(texture);
                     updateDict = true;
                     break;
                 }

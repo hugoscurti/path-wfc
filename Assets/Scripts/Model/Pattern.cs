@@ -18,7 +18,7 @@ public class Pattern
 
     #region Constructor
 
-    public Pattern(int N, int x, int y, byte[] colorIndices, RectInt size)
+    public Pattern(int N, int x, int y, byte[] colorIndices, Size size)
     {
         this.N = N;
 
@@ -33,7 +33,7 @@ public class Pattern
         indices = ApplyPattern(f);
     }
 
-    public Pattern(int N, int x, int y, byte[] colorIndices, RectInt size, byte maskColor)
+    public Pattern(int N, int x, int y, byte[] colorIndices, Size size, byte maskColor)
     {
         this.N = N;
 
@@ -242,19 +242,20 @@ public class Pattern
         return indices[x + y * N];
     }
 
-    public Texture2D Print(List<Color> colors)
+    public Texture2D Print(List<Color32> colors)
     {
         Texture2D res = new Texture2D(N, N, TextureFormat.RGBA32, false) {
             filterMode = FilterMode.Point,
             alphaIsTransparency = true
         };
 
-        for (int x = 0; x < N; ++x)
-            for(int y = 0; y < N; ++y)
-            {
-                res.SetPixel(x, y, colors[Get(x, y)]);
-            }
+        var patternColors = new Color32[N * N];
+        for (int i = 0; i < patternColors.Length; ++i)
+        {
+            patternColors[i] = colors[indices[i]];
+        }
 
+        res.SetPixels32(patternColors);
         res.Apply();
 
         return res;

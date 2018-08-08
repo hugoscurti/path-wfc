@@ -20,7 +20,7 @@ public struct PathSmoothingJob : IJob
     [ReadOnly]
     public NativeArray<int> Obstacles;
     [ReadOnly]
-    public RectInt ImageSize;
+    public Size ImageSize;
 
     public void Execute()
     {

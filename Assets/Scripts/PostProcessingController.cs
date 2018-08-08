@@ -29,7 +29,7 @@ public class PostProcessingController : MonoBehaviour
 
     public Material lineMaterial;
 
-    private RectInt imageSize;
+    private Size imageSize;
     private HashSet<int> obstacles;
 
     private PostProcessingModel ppmodel = new PostProcessingModel();

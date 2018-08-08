@@ -68,7 +68,7 @@ public class PathOverlapController : MonoBehaviour {
         // Prepare variables for thread
         mapController.ResetOutput();
 
-        model.Init(mapController.inputTarget, mapController.outputTarget, N, ModelAttributes);
+        model.Init(mapController.inputTarget.sprite.texture, mapController.outputTarget.sprite.texture, N, ModelAttributes);
 
         InitModel(true);
     }
@@ -78,7 +78,7 @@ public class PathOverlapController : MonoBehaviour {
         model.Propagate();
         firstPropagateDone = true;
 
-        if (print) model.Print();
+        if (print) model.Print(mapController.outputTarget.sprite.texture);
     }
 
     private void InitModel(bool print)
@@ -87,7 +87,7 @@ public class PathOverlapController : MonoBehaviour {
         model.Reset(seed);
 
         if (print)
-            model.Print();
+            model.Print(mapController.outputTarget.sprite.texture);
     }
 
     public void ExecuteAlgorithm(bool reset = true, bool step = false)
@@ -122,7 +122,7 @@ public class PathOverlapController : MonoBehaviour {
         {
             if (Time.realtimeSinceStartup - lastUpdate > execution.SecondsBetweenUpdate)
             {
-                model.Print();
+                model.Print(mapController.outputTarget.sprite.texture);
 
                 lastUpdate = Time.realtimeSinceStartup;
 
@@ -136,7 +136,7 @@ public class PathOverlapController : MonoBehaviour {
             {
                 // Wait for thread to finish?
                 _thread.Join();
-                model.Print();
+                model.Print(mapController.outputTarget.sprite.texture);
 
                 // Unregister event
                 EditorApplication.update -= EditorUpdate;
@@ -146,12 +146,14 @@ public class PathOverlapController : MonoBehaviour {
 
     private void OnDrawGizmos()
     {
-        var output = GetComponent<MapController>().outputTarget;
+        var output = mapController.outputTarget;
         var text = $"Seed: {seed};\nStatus : {status};\nTime : {timeRun} sec.";
-        
 
+        var pos = output.transform.position;
+        if (output.sprite != null)
+            pos -= output.sprite.bounds.extents;
         // Show status of algorithm
-        Handles.Label(output.transform.position, text);
+        Handles.Label(pos, text);
     }
 
     private void Execute()
