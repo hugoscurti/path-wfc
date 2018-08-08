@@ -150,8 +150,7 @@ public class PathOverlapController : MonoBehaviour {
         var text = $"Seed: {seed};\nStatus : {status};\nTime : {timeRun} sec.";
 
         var pos = output.transform.position;
-        if (output.sprite != null)
-            pos -= output.sprite.bounds.extents;
+        
         // Show status of algorithm
         Handles.Label(pos, text);
     }
