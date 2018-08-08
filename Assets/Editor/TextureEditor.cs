@@ -37,7 +37,6 @@ public class TextureEditor : Editor
         if (hit && hit.transform == src.transform)
         {
             Vector2Int gridPos = Vector2Int.FloorToInt(hit.transform.InverseTransformPoint(hit.point));
-            Debug.Log(gridPos);
 
             // Open window to select pattern
             SelectPatternEditorWindow window = EditorWindow.GetWindow<SelectPatternEditorWindow>();
