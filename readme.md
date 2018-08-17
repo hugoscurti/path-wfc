@@ -11,25 +11,28 @@ This project is a port of the [WFC algorithm](https://github.com/mxgmn/WaveFunct
 - - -
 
 ## WFC Modifications
-We want to use the WFC algorithm and modify it to generate cyclic paths around obstacles, in constrained fixed outputs. As a result, we adapt the algorithm to make it work for our needs.
+Our goal was to use the WFC algorithm and modify it to generate cyclic paths around obstacles, in constrained fixed outputs. As a result, we adapted the algorithm to make it work for our needs.
 
 ### Fixed outputs
- To be able to generate paths on fixed outputs, we add a few pre-processing steps in order to populate the output with patterns that represent the obstacles' layout on the map. This is similar to setting a fixed pattern one at a time on a blank output until the map's layout is achieved.
+ To be able to generate paths on fixed outputs, we added a few pre-processing steps in order to populate the output with patterns that represent the obstacles' layout on the map. This is similar to setting a fixed pattern one at a time on a blank output until the map's layout is achieved.
 
 ### Stretch space
-We try to imitate the input path's behavior by introducing a color (that we call stretch space) that represents the space between a path and an obstacles. This leads to paths of arbitrary length from obstacles while making patterns more strict.
+We tried to replicate the input path's behavior by introducing a color (that we call stretch space) that represents the space between a path and an obstacle. This leads to paths of arbitrary length from obstacles while making patterns more strict.
 
 ### Masks 
-We use masks, which are sets of colors, to be able to use any input for any outputs with obstacles of different shapes. We do this by creating patterns from the output map that uses masks to let other tiles go on these patterns. 
+We used masks, which basically are sets of colors, to be able to use any input in conjunction with any output with obstacles of different shapes. We do this by creating patterns from the output map that uses masks on non-obstacle areas to let other tiles go on these patterns. 
 
 ### Post-processing
-Since paths are generated on images, we then apply a few post-processing steps to convert them into actual paths on a game level. We also enable 3 optional post-processing steps:
+Since paths are generated on images, we then enable a few post-processing steps to convert them into actual usable paths on a game level. We also enable 3 optional post-processing steps:
 
 #### Path Filtering
+Enables the option to remove paths that are smaller than a certain threshold (e.g. small paths that don't go around an obstacle). The threshold can be adjusted by users in the editor.
 
 #### Path Simplification
+We use the [Ramer-Douglas-Peucker algorithm](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm) in order to remove frequent redundant vertices to simplify the resulting path. The algorithm goes through vertices and remove those that are too close to the line segment formed by its surrounding vertices, only if the resulting line doesn't go through an obstacle. The threshold used to determine wether a vertex should be removed or not can also be specified by users in the editor. 
 
 #### Path Smoothing
+Since we are working in a pixelated 2d environment, generated paths tend to be jagged. We enable path smoothing using [Chaikin's curve generation algorithm](http://graphics.cs.ucdavis.edu/education/CAGDNotes/Chaikins-Algorithm/Chaikins-Algorithm.html). We let users specify the number of iterations to apply, up to 5 iterations.
 
 
 - - -
@@ -37,9 +40,11 @@ Since paths are generated on images, we then apply a few post-processing steps t
 
 Basic requirements to use the aglorithm are described below. **Alternatively, loading the "Demo" scene gets you all necessary requirements**.
 
-* Tilemap objects for both the input and output images. You can either instantiate those in 2 separate grid parents or in the same grid parent.
+* Sprite renderers for both the input and output images. A box collider 2d component is required on the output if you want to select specific patterns during or before execution. 
 
-* Instance of the Map Controller script. Can be put in any GameObjet. You will need to reference the input and output tilemaps in Input Target and Output Target attributes.
+* Instance of the Map Controller script. Can be put in any GameObjet. You will need to reference the input and output gameobjects in Input Target and Output Target attributes.
+
+    * Alternatively, you can set a background sprite renderer which, if set, will be put behind the output renderer so that it acts as a background. This is only useful when dealing with masks, since masks are visually represented by a transparent color.
 
 * Instance of the Path Overlap Controller script. Can be put in any GameObject. You will need to reference the Map Controller script in the Map Controller attribute.
 
