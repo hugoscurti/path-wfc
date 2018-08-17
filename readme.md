@@ -88,4 +88,6 @@ Basic requirements to use the aglorithm are described below. **Alternatively, lo
 
 * Initial WFC algorithm used can be found [here](https://github.com/mxgmn/WaveFunctionCollapse).
 
+    *  WFC implementation and modifications done for this project are found in [PathOverlapModel.cs](Assets/Scripts/Model/PathOverlapModel.cs) 
+
 * All the .map files used in the output folders come from [Moving AI](http://movingai.com/benchmarks/).
