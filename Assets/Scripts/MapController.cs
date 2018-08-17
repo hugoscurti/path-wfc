@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using UnityEditor;
-using UnityEngine;
-using UnityEngine.Tilemaps;
+﻿using UnityEngine;
 
 public class MapController : MonoBehaviour {
 
@@ -39,8 +32,11 @@ public class MapController : MonoBehaviour {
 
         // Set background alpha to be the same size as the output
         Vector2 mapsize = new Vector2(outputTex.width, outputTex.height);
-        Background.size = mapsize;
-        Background.transform.localPosition = new Vector3(0, 0, Background.transform.localPosition.z);
+        if (Background)
+        {
+            Background.size = mapsize;
+            Background.transform.localPosition = new Vector3(0, 0, Background.transform.localPosition.z);
+        }
 
         // Set Output collider size to fit output map's size
         var collider = outputTarget.GetComponent<BoxCollider2D>();
@@ -64,30 +60,16 @@ public class MapController : MonoBehaviour {
         DestroyImmediate(inputTex);
         DestroyImmediate(outputTex);
 
+
         // Reset background and collider as well
-        Background.size = Vector2.zero;
+        if (Background)
+            Background.size = Vector2.zero;
         var collider = outputTarget.GetComponent<BoxCollider2D>();
         if (collider) collider.enabled = false;
 
 
         // Unload assets just in case
         Resources.UnloadUnusedAssets();
-    }
-
-    public void DestroyTiles(Tilemap target)
-    {
-        Vector3Int pos = Vector3Int.zero;
-        var bounds = target.cellBounds;
-
-        for (int x = 0; x < bounds.xMax; ++x)
-            for (int y = 0; y < bounds.yMax; ++y)
-            {
-                pos.Set(x, y, 0);
-                target.SetTile(pos, null);
-            }
-
-        // Clear all tiles at the end
-        target.ClearAllTiles();
     }
     
 
