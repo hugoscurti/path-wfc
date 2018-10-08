@@ -24,7 +24,7 @@ namespace Utilities
             if (sum == 0)
             {
                 for (int j = 0; j < a.Length; j++) a[j] = 1;
-                sum = a.Sum();
+                sum = a.Sum();  // This could be replaced by a.length...
             }
 
             for (int j = 0; j < a.Length; j++) a[j] /= sum;
